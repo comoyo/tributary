@@ -15,6 +15,7 @@ git clone git@github.com:comoyo/tributary.git
 
 Install and run the server:
 ```bash
+go get github.com/comoyo/tributary/tributary-server/...
 go install github.com/comoyo/tributary/tributary-server
 tributary-server
 ```
