@@ -1,9 +1,26 @@
+var path = require('path');
+var webpack = require('webpack');
+
 module.exports = {
   entry: {
-    app: ["./lib/entry.js"]
+    app: ["./lib/entry.jsx"]
   },
   output: {
     path: __dirname,
     filename: "bundle.js"
   },
+  module: {
+    loaders: [
+      {
+        test: /.jsx$/,
+        loader: 'babel-loader'
+      },
+    ],
+  },
+  plugins: [
+    // Avoid publishing files when compilation failed
+    new webpack.NoErrorsPlugin(),
+  ],
+  // Create Sourcemaps for the bundle
+  devtool: 'source-map',
 };
