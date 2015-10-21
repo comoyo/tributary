@@ -44,7 +44,7 @@ The web client and server talk over web sockets. All of the messages sent back a
 A broadcasting client sends this command to announce the intent to start a live broadcast.
 
 Command properties:
-  * id (string): an identifier for the broadcast.
+  * name (string): an identifier for the broadcast.
 
 The server will send back a START_BROADCAST_RECEIVED command which is an acknowledgement that the broadast is now live.
 
@@ -53,7 +53,7 @@ The server will send back a START_BROADCAST_RECEIVED command which is an acknowl
 A broadcasting client sends this command to terminate the live broadcast.
 
 Command properties:
-  * id (string): an identifier for the broadcast.
+  * name (string): an identifier for the broadcast.
 
 The server will send back a END_BROADCAST_RECEIVED command which is an acknowledgement that the broadast is now terminated.
 
@@ -62,7 +62,7 @@ The server will send back a END_BROADCAST_RECEIVED command which is an acknowled
 A receiving client sends this message to announce that they'd like to watch a live broadcast.
 
 Command properties:
-  * id (string): an identifier for the broadcast.
+  * name (string): an identifier for the broadcast.
   * offer (JSON object): the offer retrieved via RTCPeerConnection.createOffer().
 
 The server will send back a JOIN_BROADCAST_RESPONSE to this command. It will contain the following properties:
@@ -74,7 +74,7 @@ The server will send back a JOIN_BROADCAST_RESPONSE to this command. It will con
 A receiving client sends this message to cleanly exit a broadcast.
 
 Command properties:
-  * id (string): an identifier for the broadcast.
+  * name (string): an identifier for the broadcast.
 
 The server will send back a LEAVE_BROADCAST command which is an acknowledgement that the broadast has been exited.
 
