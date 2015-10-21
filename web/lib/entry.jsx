@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDom from 'react-dom';
+import Participant from './participant.jsx';
 import Video from './video.jsx';
 
 class Entry extends React.Component {
@@ -41,6 +42,7 @@ class Entry extends React.Component {
                     {broadcastText}
                 </button>
                 <Video start={this.state.broadcast} onBroadcast={this.onBroadcast.bind(this)}/>
+                <Participant {...participantProps} />
             </div>
         );
     }
