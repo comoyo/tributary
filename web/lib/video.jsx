@@ -20,7 +20,7 @@ class Video extends React.Component {
         navigator.mediaDevices.getUserMedia(constraints)
         .then(stream => {
             this.setState({ stream: stream, started: true });
-            this.props.onBroadcast({ stream: stream });
+            this.props.onVideoStream({ stream: stream });
         })
         .catch(err => {
             console.error('Ohz noez', err);
@@ -41,7 +41,7 @@ class Video extends React.Component {
             this.state.stream.stop();
         }
         this.setState({ stream: null, started: false });
-        this.props.onBroadcast({ stream: null });
+        this.props.onVideoStream({ stream: null });
     }
 
     componentWillReceiveProps(newProps) {

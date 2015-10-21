@@ -7,7 +7,7 @@ class Participant extends React.Component {
     }
 
     componentWillReceiveProps(props) {
-        this.initializeStuff({ stream: props.stream, isBroadcaster: props.isBroadcaster });
+        this.initializeStuff({ stream: props.stream, broadcasting: props.broadcasting });
 
     }
 
@@ -23,7 +23,7 @@ class Participant extends React.Component {
             ],
         });
 
-        if (options.isBroadcaster) {
+        if (options.broadcasting) {
             if (options.stream) {
                 console.log('Adding broadcast stream', options.stream);
                 peerConnection.addStream(options.stream);
