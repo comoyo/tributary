@@ -1,0 +1,15 @@
+{
+  "name": "tributary",
+  "version": "1.0.0",
+  "description": "Tributary WebRTC broadcasting web client",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/comoyo/tributary"
+  },
+  "author": "Kevin Simons <kevin@telenordigital.com>, Tor Arvid Lund <torarvid@telenordigital.com>",
+  "license": "Apache-2.0"
+}
