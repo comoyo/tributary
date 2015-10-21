@@ -19,7 +19,8 @@ class Video extends React.Component {
 
         navigator.mediaDevices.getUserMedia(constraints)
         .then(stream => {
-            this.setState({ stream: stream });
+            this.setState({ stream: stream, started: true });
+            this.props.onBroadcast({ stream: stream });
         })
         .catch(err => {
             console.error('Ohz noez', err);
@@ -39,12 +40,15 @@ class Video extends React.Component {
         } else if (typeof this.state.stream.stop === 'function') { // LocalMediaStream
             this.state.stream.stop();
         }
-        this.setState({ stream: null });
+        this.setState({ stream: null, started: false });
+        this.props.onBroadcast({ stream: null });
     }
 
     componentWillReceiveProps(newProps) {
         if (newProps.start) {
-            this.initVideo();
+            if (!this.state.started) {
+                this.initVideo();
+            }
         } else {
             this.closeVideo();
         }
