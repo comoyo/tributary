@@ -11,13 +11,16 @@ import (
 
 type CommandHandlerFunc func(conn *websocket.Conn, id string, message map[string]interface{})
 type TreeNode struct {
-	conn *websocket.Conn
-	id   string
+	conn     *websocket.Conn
+	id       string
+	children []*TreeNode
+	parent   *TreeNode
 }
 
 var (
-	port     = flag.Int("port", 8081, "Port the server listens on")
-	upgrader = websocket.Upgrader{
+	port         = flag.Int("port", 8081, "Port the server listens on")
+	maxListeners = flag.Int("max-listeners", 3, "Max number of listeners (WebRTC peers) for a single client")
+	upgrader     = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
@@ -25,9 +28,14 @@ var (
 		},
 	}
 	commandHandlers = map[string]CommandHandlerFunc{
-		"START_BROADCAST": commandStartBroadcast,
+		"START_BROADCAST":          commandStartBroadcast,
+		"JOIN_BROADCAST":           commandJoinBroadcast,
+		"RELAY_BROADCAST_RECEIVED": commandRelayBroadCastReceived,
+		"ICE_CANDIDATES":           commandIceCandidates,
+		"ICE_CANDIDATES_RECEIVED":  commandIceCandidatesReceived,
 	}
-	broadcasts = map[string]TreeNode{}
+	broadcasts  = map[string]*TreeNode{}
+	connections = map[string]*websocket.Conn{}
 )
 
 func main() {
@@ -57,17 +65,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		messageObject, ok := rawMessage.(map[string]interface{})
 		if !ok {
-			errorMessage := "Message is not a JSON object"
-			log.Println(errorMessage)
-			sendErrorMessage(conn, errorMessage)
+			sendErrorMessage(conn, "Message is not a JSON object")
 			continue
 		}
 
 		command, ok := messageObject["command"].(string)
 		if !ok {
-			errorMessage := "Message is lacking a command property"
-			log.Println(errorMessage)
-			sendErrorMessage(conn, errorMessage)
+			sendErrorMessage(conn, "Message is lacking a command property")
 			continue
 		}
 
@@ -75,9 +79,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		if commandHandler, ok := commandHandlers[command]; ok {
 			commandHandler(conn, id, messageObject)
 		} else {
-			errorMessage := fmt.Sprintf("Unknown command: %v", command)
-			log.Printf(errorMessage)
-			sendErrorMessage(conn, errorMessage)
+			sendErrorMessage(conn, fmt.Sprintf("Unknown command: %v", command))
 			continue
 		}
 	}
@@ -85,11 +87,12 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {
 	if name, ok := stringProp(message, "name"); ok {
-		broadcasts[name] = TreeNode{
-			conn,
-			id,
+		log.Printf("Starting broadcast: %v", name)
+		broadcasts[name] = &TreeNode{
+			conn: conn,
+			id:   id,
 		}
-
+		connections[id] = conn
 		conn.WriteJSON(struct {
 			Command string `json:"command"`
 		}{
@@ -98,9 +101,125 @@ func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]i
 		return
 	}
 
-	errorMessage := "No \"name\" property not specified or not a string in START_BROADCAST message"
-	log.Printf(errorMessage)
-	sendErrorMessage(conn, errorMessage)
+	sendErrorMessage(conn, "No \"name\" property not specified or not a string in START_BROADCAST message")
+}
+
+func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {
+	var name string
+	var offer map[string]interface{}
+	var ok bool
+
+	if name, ok = stringProp(message, "name"); !ok {
+		sendErrorMessage(conn, "No \"name\" property not specified or not a string in JOIN_BROADCAST message")
+	}
+
+	if offer, ok = objectProp(message, "offer"); !ok {
+		sendErrorMessage(conn, "No \"offer\" property not specified or not an object in JOIN_BROADCAST message")
+	}
+
+	if broadcast, ok := broadcasts[name]; ok {
+
+		// FIXME: need to actually build a proper tree and insert this new connection into the right place.
+		// For now everyone just connects directly to the broadcaster.
+		parent := broadcast
+		node := TreeNode{
+			conn:   conn,
+			id:     id,
+			parent: parent,
+		}
+		connections[id] = conn
+
+		parent.children = append(node.parent.children, &node)
+		parent.conn.WriteJSON(struct {
+			Command string                 `json:"command"`
+			Peer    string                 `json:"peer"`
+			Offer   map[string]interface{} `json:"offer"`
+		}{
+			"RELAY_BROADCAST",
+			id,
+			offer,
+		})
+		return
+	}
+
+	sendErrorMessage(conn, fmt.Sprintf("Unknown broadcast: %v", name))
+}
+
+func commandRelayBroadCastReceived(conn *websocket.Conn, id string, message map[string]interface{}) {
+	var peer string
+	var answer map[string]interface{}
+	var ok bool
+
+	if peer, ok = stringProp(message, "peer"); !ok {
+		sendErrorMessage(conn, "No \"peer\" property not specified or not a string in RELAY_BROADCAST_RECEIVED message")
+	}
+
+	if answer, ok = objectProp(message, "answer"); !ok {
+		sendErrorMessage(conn, "No \"answer\" property not specified or not an object in RELAY_BROADCAST_RECEIVED message")
+	}
+
+	if peerConnection, ok := connections[peer]; ok {
+		peerConnection.WriteJSON(struct {
+			Command string                 `json:"command"`
+			Peer    string                 `json:"peer"`
+			Answer  map[string]interface{} `json:"answer"`
+		}{
+			"JOIN_BROADCAST_RECEIVED",
+			id,
+			answer,
+		})
+		return
+	}
+
+	sendErrorMessage(conn, fmt.Sprintf("Unknown peer: %v", peer))
+}
+
+func commandIceCandidates(conn *websocket.Conn, id string, message map[string]interface{}) {
+	var peer string
+	var candidates []interface{}
+	var ok bool
+
+	if peer, ok = stringProp(message, "peer"); !ok {
+		sendErrorMessage(conn, "No \"peer\" property not specified or not a string in ICE_CANDIDATE message")
+	}
+
+	if candidates, ok = arrayProp(message, "candidates"); !ok {
+		sendErrorMessage(conn, "No \"candidates\" property not specified or not an array in ICE_CANDIDATE message")
+	}
+
+	if peerConnection, ok := connections[peer]; ok {
+		peerConnection.WriteJSON(struct {
+			Command    string        `json:"command"`
+			Peer       string        `json:"peer"`
+			Candidates []interface{} `json:"candidates"`
+		}{
+			"ICE_CANDIDATES",
+			id,
+			candidates,
+		})
+		return
+	}
+
+	sendErrorMessage(conn, fmt.Sprintf("Unknown peer: %v", peer))
+}
+
+func commandIceCandidatesReceived(conn *websocket.Conn, id string, message map[string]interface{}) {
+	if peer, ok := stringProp(message, "peer"); ok {
+		if peerConnection, ok := connections[peer]; ok {
+			peerConnection.WriteJSON(struct {
+				Command string `json:"command"`
+				Peer    string `json:"peer"`
+			}{
+				"ICE_CANDIDATES_RECEIVED",
+				id,
+			})
+			return
+		}
+
+		sendErrorMessage(conn, fmt.Sprintf("Unknown peer: %v", peer))
+	} else {
+		sendErrorMessage(conn, "No \"peer\" property not specified or not a string in ICE_CANDIDATE message")
+	}
 }
 
 func stringProp(message map[string]interface{}, name string) (string, bool) {
@@ -113,13 +232,35 @@ func stringProp(message map[string]interface{}, name string) (string, bool) {
 	return "", false
 }
 
+func objectProp(message map[string]interface{}, name string) (map[string]interface{}, bool) {
+	if rawValue, ok := message[name]; ok {
+		if value, ok := rawValue.(map[string]interface{}); ok {
+			return value, true
+		}
+	}
+
+	return map[string]interface{}{}, false
+}
+
+func arrayProp(message map[string]interface{}, name string) ([]interface{}, bool) {
+	if rawValue, ok := message[name]; ok {
+		if value, ok := rawValue.([]interface{}); ok {
+			return value, true
+		}
+	}
+
+	return []interface{}{}, false
+}
+
 func sendErrorMessage(conn *websocket.Conn, message string) {
+	log.Println(message)
 	conn.WriteJSON(struct {
 		Message string `json:"message"`
 	}{message})
 }
 
 func sendErrorMessageAndCode(conn *websocket.Conn, message string, errorCode int) {
+	log.Println(message)
 	conn.WriteJSON(struct {
 		Message string `json:"message"`
 		Code    int    `json:"code"`

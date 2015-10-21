@@ -65,7 +65,7 @@ Command properties:
   * name (string): an identifier for the broadcast.
   * offer (JSON object): the offer retrieved via RTCPeerConnection.createOffer().
 
-The server will send back a JOIN_BROADCAST_RESPONSE to this command. It will contain the following properties:
+The server will send back a JOIN_BROADCAST_RECEIVED to this command. It will contain the following properties:
   * peer (string): a unique identifier of the remote peer. The client will need to send this ID back to the server for future messages (like ICE_CANDIDATE).
   * answer (JSON object): the answer from a remote peer which will start sending the broadcast.
 
@@ -78,15 +78,15 @@ Command properties:
 
 The server will send back a LEAVE_BROADCAST command which is an acknowledgement that the broadast has been exited.
 
-### ICE_CANDIDATE
+### ICE_CANDIDATES
 
 A client (both broadcasting and receiving) sends this message to announce that is has one or more ICE candidates.
 
 Command properties:
-  * peer (string): the unique identifier of the remote peer that was provided in the JOIN_BROADCAST_RESPONSE message.
+  * peer (string): the unique identifier of the remote peer that was provided in the JOIN_BROADCAST_RECEIVED message.
   * candidates (array of JSON objects): the ICE candidates from the RTCPeerConnection.onicecandidate().
 
-The server will send back a ICE_CANDIDATE_RESPONSE to acknowlege that the remote peer has received the candidates.
+The server will send back a ICE_CANDIDATES_RECEIVED to acknowlege that the remote peer has received the candidates.
 
 ## Server-to-client commands
 
@@ -102,7 +102,7 @@ The server expects an RELAY_BROADCAST_RECEIVED message in response. It will cont
   * peer (string): a unique identifier of the remote peer.
   * answer (JSON object): the answer to send the remote peer obtained via RTCPeerConnection.createAnswer().
 
-### ICE_CANDIDATE
+### ICE_CANDIDATES
 
 The remote peer is sending one or more ICE candidates.
 
@@ -110,4 +110,4 @@ Command properties:
   * peer (string): the unique identifer of the remote peer providing ICE candidates.
   * candidates (array of JSON objects): the ICE candidates from the remote peer which should be passed to RTCPeerConnection.addIceCandidate().
 
-The server expects an ICE_CANDIDATE_RESPONSE message to acknowledge the receipt of the ICE candidate.
+The server expects an ICE_CANDIDATES_RECEIVED message to acknowledge the receipt of the ICE candidate.
