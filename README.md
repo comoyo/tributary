@@ -19,15 +19,14 @@ go install github.com/comoyo/tributary/tributary-server
 tributary-server
 ```
 
-## Web client usage
+## Web client
 We use webpack for development (and webpack-dev-server).
 
 To install, run
 
     npm install -g webpack webpack-dev-server
 
-Then run `webpack-dev-server` from the `web` directory to serve files
-and watch for changes.
+Then run `webpack-dev-server --inline` from the `web` directory to serve
+files and watch for changes.
 
-Go to `http://localhost:8080/webpack-dev-server/index.html` to see the
-magic.
+Go to `http://localhost:8080` to see the magic.
