@@ -85,8 +85,8 @@ func sendErrorMessage(conn *websocket.Conn, message string) {
 
 func sendErrorMessageAndCode(conn *websocket.Conn, message string, errorCode int) {
 	conn.WriteJSON(struct {
-		message string `json:"message"`
-		code    int    `json:"code"`
+		Message string `json:"message"`
+		Code    int    `json:"code"`
 	}{
 		message: message,
 		code:    errorCode,
