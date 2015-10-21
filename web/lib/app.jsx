@@ -5,18 +5,14 @@ import Video from './video.jsx';
 class App extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {};
-
-        // TODO: Move, refactor, blah. Just wanted to see a message flowing to the server
-        let socket = new WebSocket('ws://127.0.0.1:8081/api/ws');
-        socket.onerror = e => console.log('ERR', e);
-        socket.onclose = () => console.log('CONN CLOSED');
-        socket.onopen = () => {
-            console.log('CONN OPEN');
-            socket.send(JSON.stringify({ command: 'BROADCAST' }));
-        }
-        socket.onmessage = m => console.log('CONN MESSAGE', m);
-        // TODO end
+        this.state = {
+            socket: new WebSocket('ws://localhost:8081/api/ws'),
+        };
+        this.state.socket.onerror = e => console.log('WebSocket error', e);
+        this.state.socket.handlers = [];
+        this.state.socket.onmessage = m => {
+            this.state.socket.handlers.forEach(handler => handler(m));
+        };
     }
 
     toggleBroadcast() {
@@ -45,8 +41,10 @@ class App extends React.Component {
         let watchingText = (this.state.watching ? 'Leave' : 'Join') + ' broadcast';
         let participantProps = {
             broadcasting: this.state.broadcasting,
-            watching: this.state.watching,
+            broadcastName: this.state.broadcastName,
+            socket: this.state.socket,
             stream: this.state.stream,
+            watching: this.state.watching,
         };
         return (
             <div>
