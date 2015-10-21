@@ -88,8 +88,8 @@ func sendErrorMessageAndCode(conn *websocket.Conn, message string, errorCode int
 		Message string `json:"message"`
 		Code    int    `json:"code"`
 	}{
-		message: message,
-		code:    errorCode,
+		message,
+		errorCode,
 	})
 	conn.Close()
 }
