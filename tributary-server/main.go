@@ -11,10 +11,13 @@ import (
 type CommandHandlerFunc func(conn *websocket.Conn, message map[string]interface{})
 
 var (
-	port     = flag.Int("port", 8080, "Port the server listens on")
+	port     = flag.Int("port", 8081, "Port the server listens on")
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
 	}
 	commandHandlers = map[string]CommandHandlerFunc{
 		"BROADCAST": commandBroadcast,
@@ -23,13 +26,16 @@ var (
 
 func main() {
 	http.HandleFunc("/api/ws", handleWebSocket)
+	log.Println("Server starting on port", *port)
 	log.Fatal("ListenAndServe:", http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
 }
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	log.Println("Incoming", r.Method, "message")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		log.Println("Failed to upgrade:", err)
 		return
 	}
 

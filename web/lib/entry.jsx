@@ -6,6 +6,17 @@ class Entry extends React.Component {
     constructor(props) {
         super(props);
         this.state = {};
+
+        // TODO: Move, refactor, blah. Just wanted to see a message flowing to the server
+        let socket = new WebSocket('ws://127.0.0.1:8081/api/ws');
+        socket.onerror = e => console.log('ERR', e);
+        socket.onclose = () => console.log('CONN CLOSED');
+        socket.onopen = () => {
+            console.log('CONN OPEN');
+            socket.send(JSON.stringify({ command: 'BROADCAST' }));
+        }
+        socket.onmessage = m => console.log('CONN MESSAGE', m);
+        // TODO end
     }
 
     toggleBroadcast() {
