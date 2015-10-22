@@ -3,6 +3,7 @@ class Peer {
         this.socket = options.socket;
         this.peerConnection = null;
         this.pendingIceCandidates = [];
+        this.onIncomingVideo = options.onIncomingVideo;
         this.setRemotePeer(options.remotePeer);
     }
 
@@ -12,6 +13,7 @@ class Peer {
     }
 
     flushIceCandidatesIfPossible() {
+        console.log('FLUSH', this.remotePeer, this.pendingIceCandidates.length);
         if (this.remotePeer && this.pendingIceCandidates.length) {
             let candidates = this.pendingIceCandidates;
             this.pendingIceCandidates = [];
@@ -36,12 +38,15 @@ class Peer {
         });
 
         peerConnection.onaddstream = e => {
+            console.log('ON ADD STREAM', e);
             if (e.stream) {
                 this.stream = e.stream;
+                this.onIncomingVideo(this.stream);
             }
         };
 
         peerConnection.onicecandidate = e => {
+            console.log('ON ICE', e.candidate);
             if (e.candidate) {
                 this.pendingIceCandidates.push(e.candidate);
                 this.flushIceCandidatesIfPossible();
@@ -93,13 +98,13 @@ class Peer {
             return this.requestResponse(this.socket, payload);
         }).then(data => {
             console.log('Successfully joined', options.name);
-            this.setRemotePeer(data.peer);
             return this.peerConnection.setRemoteDescription(
                 new RTCSessionDescription(data.answer),
                 () => console.log('Remote description set.'),
                 error => console.error('Invalid remote description: ' + JSON.stringify(error))
-            );
-        }).catch(e => console.log('Unknown error', e));
+            ).then(() => data);
+        }).then(data => this.setRemotePeer(data.peer))
+        .catch(e => console.log('Unknown error', e));
     }
 
     stopBroadcasting(options) {

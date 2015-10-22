@@ -27,6 +27,7 @@ class App extends React.Component {
 
     onCameraStream(e) {
         this.setState({ stream: e.stream });
+        this.state.comm.setIncomingVideoStream(e.stream);
     }
 
     toggleJoin() {
@@ -35,7 +36,10 @@ class App extends React.Component {
             alert('Need to specify a broadcast name to watch');
             return;
         }
-        let peer = new Peer({ socket: this.state.comm.socket, remotePeer: null });
+        let peer = new Peer({
+            socket: this.state.comm.socket,
+            remotePeer: null,
+            onIncomingVideo: stream => this.setState({ stream: stream }) });
         // this.state.peers.push(peer);
         peer.createPeerConnection();
         peer.startWatching({ name: name });

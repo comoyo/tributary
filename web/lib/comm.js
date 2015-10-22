@@ -46,7 +46,9 @@ class Comm {
     }
 
     handleRelayBroadcast(data) {
+        console.log('GOT RELAY BROADC', data);
         let peer = this.getPeerWithConnection(data.peer);
+        peer.addStream(this.stream);
         let remoteSuccessHandler = () => {
             console.log('Downstream description set. Creating answer');
             peer.peerConnection.createAnswer(answer => {
@@ -66,6 +68,7 @@ class Comm {
     }
 
     handleIceCandidates(data) {
+        console.log('GOT ICE CANDIDATES', data);
         let peer = this.getPeerWithConnection(data.peer);
         data.candidates.forEach(c => {
             peer.peerConnection.addIceCandidate(new RTCIceCandidate(c))
