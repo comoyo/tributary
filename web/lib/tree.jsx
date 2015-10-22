@@ -40,6 +40,7 @@ class Tree extends React.Component {
     }
 
     componentWillReceiveProps(props) {
+        console.log('TREE: NEW PROPS', props);
         this.initTree(props);
         this.recalcTree();
     }
@@ -109,6 +110,7 @@ class Tree extends React.Component {
             {
                 return d.name;
             });
+        this.forceUpdate();
     }
 
     render() {
