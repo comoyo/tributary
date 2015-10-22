@@ -67,8 +67,13 @@ class Comm {
 
     handleIceCandidates(data) {
         let peer = this.getPeerWithConnection(data.peer);
-        data.candidates.forEach(c => peer.peerConnection.addIceCandidate(new RTCIceCandidate(c)));
-        this.socket.send(JSON.stringify({ command: 'ICE_CANDIDATES_RECEIVED' }));
+        data.candidates.forEach(c => {
+            peer.peerConnection.addIceCandidate(new RTCIceCandidate(c))
+        });
+        this.socket.send(JSON.stringify({
+            command: 'ICE_CANDIDATES_RECEIVED',
+            peer: peer.remotePeer,
+        }));
     }
 
     requestResponse(socket, payload) {

@@ -18,7 +18,7 @@ class Peer {
             this.requestResponse(this.socket, {
                 command: 'ICE_CANDIDATES',
                 peer: this.remotePeer,
-                candidates: [candidates],
+                candidates: candidates,
             }).then(() => console.log('Sent ICE candidate to', this.remotePeer));
         }
     }
