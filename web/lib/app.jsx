@@ -3,7 +3,6 @@ import Comm from './comm';
 import Peer from './peer';
 import React from 'react';
 import Tree from './tree.jsx';
-import TreeData from './treeData';
 import Video from './video.jsx';
 
 let websocketEndpoint = 'ws://' + window.location.host + '/api/ws';
@@ -18,6 +17,10 @@ class App extends React.Component {
             peers: peers,
             comm: new Comm({ url: websocketEndpoint, peers: peers }),
             camera: camera,
+            treeData: {},
+        };
+        this.state.comm.onTreeStateChanged = tree => {
+            this.setState({ treeData: tree });
         };
     }
 
@@ -105,7 +108,7 @@ class App extends React.Component {
                     <button type='button' onClick={this.toggleJoin.bind(this)}>
                         {watchingText}
                     </button>
-                    <Tree data={TreeData} />
+                    <Tree data={this.state.treeData} />
                 </div>
                 <Video stream={this.state.stream} />
             </div>

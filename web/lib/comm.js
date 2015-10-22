@@ -21,6 +21,9 @@ class Comm {
                     case 'ICE_CANDIDATES':
                         this.handleIceCandidates(data);
                         break;
+                    case 'TREE_STATE_CHANGED':
+                        this.handleTreeStateChanged(data);
+                        break;
                 }
             }
         });
@@ -97,7 +100,20 @@ class Comm {
             name: options.name,
             peerName: options.peerName,
         };
-        this.requestResponse(this.socket, payload).then(() => console.log('Broadcasting started'));
+        this.requestResponse(this.socket, payload)
+            .then(() => console.log('Broadcasting started'))
+            .then(() => {
+                this.socket.send(JSON.stringify({
+                    command: 'SUBSCRIBE_TO_TREE_STATE',
+                    name: options.name,
+                }));
+            });
+    }
+
+    handleTreeStateChanged(data) {
+        if (this.onTreeStateChanged) {
+            this.onTreeStateChanged(data.tree);
+        }
     }
 }
 

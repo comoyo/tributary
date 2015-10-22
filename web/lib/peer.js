@@ -105,6 +105,12 @@ class Peer {
                 error => console.error('Invalid remote description: ' + JSON.stringify(error))
             ).then(() => data);
         }).then(data => this.setRemotePeer(data.peer))
+        .then(() => {
+            this.socket.send(JSON.stringify({
+                command: 'SUBSCRIBE_TO_TREE_STATE',
+                name: options.name,
+            }));
+        })
         .catch(e => console.log('Unknown error', e));
     }
 
