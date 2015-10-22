@@ -95,6 +95,7 @@ class Comm {
         let payload = {
             command: 'START_BROADCAST',
             name: options.name,
+            peerName: options.peerName,
         };
         this.requestResponse(this.socket, payload).then(() => console.log('Broadcasting started'));
     }

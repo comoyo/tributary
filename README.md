@@ -46,6 +46,7 @@ A broadcasting client sends this command to announce the intent to start a live 
 
 Command properties:
   * name (string): an identifier for the broadcast.
+  * peerName (string): a user-friendly name for the client doing the broadcasting.
 
 The server will send back a START_BROADCAST_RECEIVED command which is an acknowledgement that the broadast is now live.
 
@@ -65,6 +66,7 @@ A receiving client sends this message to announce that they'd like to watch a li
 Command properties:
   * name (string): an identifier for the broadcast.
   * offer (JSON object): the offer retrieved via RTCPeerConnection.createOffer().
+  * peerName: a user-friendly name for the client listening to the broadcast.
 
 The server will send back a JOIN_BROADCAST_RECEIVED to this command. It will contain the following properties:
   * peer (string): a unique identifier of the remote peer. The client will need to send this ID back to the server for future messages (like ICE_CANDIDATE).
@@ -89,6 +91,22 @@ Command properties:
 
 The server will send back a ICE_CANDIDATES_RECEIVED to acknowlege that the remote peer has received the candidates.
 
+### SUBSCRIBE_TO_TREE_STATE
+
+A client can send this to listen to changes about the state of the tree
+
+Command properties:
+  * name (string): an identifier for the broadcast.
+
+The server will send the client TREE_STATE_CHANGED messages whenever the tree changes.
+
+### UNSUBSCRIBE_FROM_TREE_STATE
+
+A client can send this to stop listening to changes about the state of the tree
+
+Command properties:
+  * name (string): an identifier for the broadcast.
+
 ## Server-to-client commands
 
 ### RELAY_BROADCAST
@@ -112,3 +130,13 @@ Command properties:
   * candidates (array of JSON objects): the ICE candidates from the remote peer which should be passed to RTCPeerConnection.addIceCandidate().
 
 The server expects an ICE_CANDIDATES_RECEIVED message to acknowledge the receipt of the ICE candidate.
+
+### TREE_STATE_CHANGED
+
+Notifies a client that changes to the tree have occurred.
+
+Command properties:
+  * peer (string): a unique identifier of the remote peer. The client will need to send this ID back to the server for future messages (like ICE_CANDIDATE).
+  * tree (JSON object): the full tree of the broadcast.
+
+

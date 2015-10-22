@@ -93,6 +93,7 @@ class Peer {
             let payload = {
                 command: 'JOIN_BROADCAST',
                 name: options.name,
+                peerName: options.peerName,
                 offer: offer,
             };
             return this.requestResponse(this.socket, payload);

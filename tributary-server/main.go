@@ -14,8 +14,23 @@ type CommandHandlerFunc func(conn *websocket.Conn, id string, message map[string
 type TreeNode struct {
 	conn     *websocket.Conn
 	id       string
+	name     string
 	children []*TreeNode
 	parent   *TreeNode
+}
+
+// FIXME: this is pretty terrible. We should use custom JSON marshaling, but I couln't get it to work
+func (t *TreeNode) json() map[string]interface{} {
+	result := map[string]interface{}{}
+	result["id"] = t.id
+	result["name"] = t.name
+
+	children := []interface{}{}
+	for _, child := range t.children {
+		children = append(children, child.json())
+	}
+	result["children"] = children
+	return result
 }
 
 var (
@@ -29,15 +44,18 @@ var (
 		},
 	}
 	commandHandlers = map[string]CommandHandlerFunc{
-		"START_BROADCAST":          commandStartBroadcast,
-		"JOIN_BROADCAST":           commandJoinBroadcast,
-		"RELAY_BROADCAST_RECEIVED": commandRelayBroadCastReceived,
-		"ICE_CANDIDATES":           commandIceCandidates,
-		"ICE_CANDIDATES_RECEIVED":  commandIceCandidatesReceived,
+		"START_BROADCAST":             commandStartBroadcast,
+		"JOIN_BROADCAST":              commandJoinBroadcast,
+		"RELAY_BROADCAST_RECEIVED":    commandRelayBroadCastReceived,
+		"ICE_CANDIDATES":              commandIceCandidates,
+		"ICE_CANDIDATES_RECEIVED":     commandIceCandidatesReceived,
+		"SUBSCRIBE_TO_TREE_STATE":     commandSubscribeToTreeState,
+		"UNSUBSCRIBE_FROM_TREE_STATE": commandUnsubscribeFromTreeState,
 	}
-	broadcasts  = map[string]*TreeNode{}
-	connections = map[string]*websocket.Conn{}
-	globalLock  = sync.Mutex{} // FIXME: yeah, I know it's horrible, but we'll fix it later
+	broadcasts         = map[string]*TreeNode{}
+	connections        = map[string]*websocket.Conn{}
+	treeStateListeners = map[string]*map[string]*websocket.Conn{}
+	globalLock         = sync.Mutex{} // FIXME: yeah, I know it's horrible, but we'll fix it later
 )
 
 func main() {
@@ -103,6 +121,11 @@ func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]i
 		return
 	}
 
+	peerName, ok := stringProp(message, "peerName")
+	if !ok {
+		peerName = "Anonymous"
+	}
+
 	log.Printf("Peer %v starting broadcast: %v", id, name)
 
 	globalLock.Lock()
@@ -111,14 +134,16 @@ func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]i
 	broadcasts[name] = &TreeNode{
 		conn: conn,
 		id:   id,
+		name: peerName,
 	}
 	connections[id] = conn
-
 	conn.WriteJSON(struct {
 		Command string `json:"command"`
 	}{
 		"START_BROADCAST_RECEIVED",
 	})
+
+	notifyTreeListeners(name)
 }
 
 func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {
@@ -130,6 +155,11 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 	offer, ok := objectProp(message, "offer")
 	if !ok {
 		sendErrorMessage(conn, "No \"offer\" property not specified or not an object in JOIN_BROADCAST message")
+	}
+
+	peerName, ok := stringProp(message, "peerName")
+	if !ok {
+		peerName = "Anonymous"
 	}
 
 	if broadcast, ok := broadcasts[name]; ok {
@@ -144,6 +174,7 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 		node := TreeNode{
 			conn:   conn,
 			id:     id,
+			name:   peerName,
 			parent: parent,
 		}
 		connections[id] = conn
@@ -161,6 +192,8 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 			id,
 			offer,
 		})
+
+		notifyTreeListeners(name)
 		return
 	}
 
@@ -178,7 +211,7 @@ func commandRelayBroadCastReceived(conn *websocket.Conn, id string, message map[
 		sendErrorMessage(conn, "No \"answer\" property not specified or not an object in RELAY_BROADCAST_RECEIVED message")
 	}
 
-	log.Printf("Peer %v responding to %p with answer: %+v\n", id, peer, answer)
+	log.Printf("Peer %v responding to %v with answer: %+v\n", id, peer, answer)
 
 	if peerConnection, ok := connections[peer]; ok {
 		peerConnection.WriteJSON(struct {
@@ -247,6 +280,60 @@ func commandIceCandidatesReceived(conn *websocket.Conn, id string, message map[s
 	}
 }
 
+func commandSubscribeToTreeState(conn *websocket.Conn, id string, message map[string]interface{}) {
+	name, ok := stringProp(message, "name")
+	if !ok {
+		sendErrorMessage(conn, "No \"name\" property not specified or not a string in SUBSCRIBE_TO_TREE_STATE message")
+		return
+	}
+
+	_, ok = broadcasts[name]
+	if !ok {
+		sendErrorMessage(conn, fmt.Sprintf("Unknown broadcast: %v", name))
+		return
+	}
+
+	listeners, ok := treeStateListeners[name]
+	if !ok {
+		listeners = &map[string]*websocket.Conn{}
+		treeStateListeners[name] = listeners
+	}
+
+	(*listeners)[id] = conn
+	conn.WriteJSON(struct {
+		Command string `json:"command"`
+	}{
+		"SUBSCRIBE_TO_TREE_STATE_RECEIVED",
+	})
+}
+
+func commandUnsubscribeFromTreeState(conn *websocket.Conn, id string, message map[string]interface{}) {
+	name, ok := stringProp(message, "name")
+	if !ok {
+		sendErrorMessage(conn, "No \"name\" property not specified or not a string in UNSUBSCRIBE_FROM_TREE_STATE message")
+		return
+	}
+
+	_, ok = broadcasts[name]
+	if !ok {
+		sendErrorMessage(conn, fmt.Sprintf("Unknown broadcast: %v", name))
+		return
+	}
+
+	listeners, ok := treeStateListeners[name]
+	if !ok {
+		return
+	}
+
+	delete(*listeners, id)
+
+	conn.WriteJSON(struct {
+		Command string `json:"command"`
+	}{
+		"UNSUBSCRIBE_FROM_TREE_STATE_RECEIVED",
+	})
+}
+
 func findNodeWithSpareCapacity(root *TreeNode) *TreeNode {
 	queue := []*TreeNode{root}
 	var node *TreeNode
@@ -263,6 +350,31 @@ func findNodeWithSpareCapacity(root *TreeNode) *TreeNode {
 	}
 
 	return nil
+}
+
+func notifyTreeListeners(broadcastName string) {
+
+	broadcast, ok := broadcasts[broadcastName]
+	if !ok {
+		log.Printf("Unknown broadcast in notifyTreeListeners: %v\n", broadcastName)
+		return
+	}
+	listeners, ok := treeStateListeners[broadcastName]
+	if !ok {
+		log.Printf("No tree state listeners for broadcast: %v\n", broadcastName)
+		return
+	}
+
+	for _, conn := range *listeners {
+		log.Println("notifying listeners")
+		conn.WriteJSON(struct {
+			Command string                 `json:"command"`
+			Tree    map[string]interface{} `json:"tree"`
+		}{
+			"TREE_STATE_CHANGED",
+			broadcast.json(),
+		})
+	}
 }
 
 func sendErrorMessage(conn *websocket.Conn, message string) {

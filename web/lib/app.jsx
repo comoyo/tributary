@@ -24,10 +24,17 @@ class App extends React.Component {
     toggleBroadcast() {
         let notCurrentlyBroadcasting = !this.state.broadcasting;
         let name = this.refs.broadcastName.value;
+
+        let userName = this.refs.user.value;
+        if (!userName) {
+            alert('Need to specify a user name');
+            return;
+        }
+
         if (notCurrentlyBroadcasting && name) {
             this.setState({ broadcasting: true });
             this.state.camera.start();
-            this.state.comm.startBroadcasting({ name: name });
+            this.state.comm.startBroadcasting({ name: name, peerName: userName });
         } else {
             this.setState({ broadcasting: false, stream: null });
             this.state.camera.stop();
@@ -45,6 +52,13 @@ class App extends React.Component {
             alert('Need to specify a broadcast name to watch');
             return;
         }
+
+        let userName = this.refs.user.value;
+        if (!userName) {
+            alert('Need to specify a user name');
+            return;
+        }
+
         let peer = new Peer({
             socket: this.state.comm.socket,
             remotePeer: null,
@@ -55,7 +69,7 @@ class App extends React.Component {
         });
         // this.state.peers.push(peer);
         peer.createPeerConnection();
-        peer.startWatching({ name: name });
+        peer.startWatching({ name: name, peerName: userName });
     }
 
     render() {
@@ -77,6 +91,11 @@ class App extends React.Component {
                             type='text'
                             ref='broadcastName'
                             placeholder='Broadcast name'>
+                        </input>
+                        <input
+                            type='text'
+                            ref='user'
+                            placeholder='User name'>
                         </input>
                     </div>
                     <button type='button' onClick={this.toggleBroadcast.bind(this)}>
