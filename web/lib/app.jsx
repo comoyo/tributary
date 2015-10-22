@@ -3,7 +3,7 @@ import Comm from './comm';
 import Peer from './peer';
 import React from 'react';
 import Tree from './tree.jsx';
-import TreeData from './treedata';
+import TreeData from './treeData';
 import Video from './video.jsx';
 
 class App extends React.Component {
