@@ -41,6 +41,7 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	http.HandleFunc("/api/ws", handleWebSocket)
 	log.Println("Server starting on port", *port)
 	log.Fatal("ListenAndServe:", http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
