@@ -6,7 +6,7 @@ import Tree from './tree.jsx';
 import TreeData from './treeData';
 import Video from './video.jsx';
 
-let websocketEndpoint = process.env.WEBSOCKET_ENDPOINT || 'ws://localhost:8081/api/ws';
+let websocketEndpoint = 'ws://' + window.location.host + '/api/ws';
 
 class App extends React.Component {
     constructor(props) {
