@@ -6,6 +6,8 @@ import Tree from './tree.jsx';
 import TreeData from './treeData';
 import Video from './video.jsx';
 
+let websocketEndpoint = process.env.WEBSOCKET_ENDPOINT || 'ws://localhost:8081/api/ws';
+
 class App extends React.Component {
     constructor(props) {
         super(props);
@@ -14,7 +16,7 @@ class App extends React.Component {
         camera.on('stream', this.onCameraStream.bind(this));
         this.state = {
             peers: peers,
-            comm: new Comm({ url: 'ws://localhost:8081/api/ws', peers: peers }),
+            comm: new Comm({ url: websocketEndpoint, peers: peers }),
             camera: camera,
         };
     }
