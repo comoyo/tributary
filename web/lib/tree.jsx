@@ -15,6 +15,9 @@ class Tree extends React.Component {
             },
             maxLabelLength: 20,
         }
+    }
+
+    initTree(props) {
         var tree = d3.layout.tree()
             .sort(null)
             .size([
@@ -24,12 +27,30 @@ class Tree extends React.Component {
                 return (!d.children || d.children.length === 0) ? null : d.children;
             });
 
-        this.state.nodes = tree.nodes(props.data);
-        this.state.links = tree.links(this.state.nodes);
-        this.state.tree = tree;
+        let nodes = tree.nodes(this.props.data);
+        this.setState({ nodes: nodes, links: tree.links(nodes), tree: tree });
+    }
+
+    componentWillMount() {
+        this.initTree(this.props);
     }
 
     componentDidMount() {
+        this.recalcTree();
+    }
+
+    componentWillReceiveProps(props) {
+        this.initTree(props);
+        this.recalcTree();
+    }
+
+    recalcTree() {
+        var container = document.getElementById('treeContainer');
+        var existing = container.firstChild;
+        console.log('EXISTING', existing);
+        if (existing) {
+            container.removeChild(existing);
+        }
         var layoutRoot = d3.select('#treeContainer')
             .append("svg:svg")
                 .attr("width", this.state.size.width)
