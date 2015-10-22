@@ -27,6 +27,7 @@ We use webpack for development (and webpack-dev-server).
 To install, run
 
     npm install -g webpack webpack-dev-server
+    npm install
 
 Then run `webpack-dev-server --inline` from the `web` directory to serve
 files and watch for changes.

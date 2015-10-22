@@ -1,4 +1,4 @@
-import Camera from './camera.jsx';
+import Camera from './camera';
 import Comm from './comm';
 import Peer from './peer';
 import React from 'react';
@@ -8,9 +8,12 @@ class App extends React.Component {
     constructor(props) {
         super(props);
         let peers = {};
+        let camera = new Camera();
+        camera.on('stream', this.onCameraStream.bind(this));
         this.state = {
             peers: peers,
             comm: new Comm({ url: 'ws://localhost:8081/api/ws', peers: peers }),
+            camera: camera,
         };
     }
 
@@ -19,9 +22,11 @@ class App extends React.Component {
         let name = this.refs.broadcastName.value;
         if (notCurrentlyBroadcasting && name) {
             this.setState({ broadcasting: true });
+            this.state.camera.start();
             this.state.comm.startBroadcasting({ name: name });
         } else {
-            this.setState({ broadcasting: false });
+            this.setState({ broadcasting: false, stream: null });
+            this.state.camera.stop();
         }
     }
 
@@ -63,23 +68,21 @@ class App extends React.Component {
             <div>
                 <h1>Hi there!</h1>
                 <div>
-                    <input
-                        type='text'
-                        ref='broadcastName'
-                        placeholder='Broadcast name'>
-                    </input>
+                    <div>
+                        <input
+                            type='text'
+                            ref='broadcastName'
+                            placeholder='Broadcast name'>
+                        </input>
+                    </div>
+                    <button type='button' onClick={this.toggleBroadcast.bind(this)}>
+                        {broadcastText}
+                    </button>
+                    <span>or</span>
+                    <button type='button' onClick={this.toggleJoin.bind(this)}>
+                        {watchingText}
+                    </button>
                 </div>
-                <button type='button' onClick={this.toggleBroadcast.bind(this)}>
-                    {broadcastText}
-                </button>
-                <span>or</span>
-                <button type='button' onClick={this.toggleJoin.bind(this)}>
-                    {watchingText}
-                </button>
-                <Camera
-                    start={this.state.broadcasting}
-                    onCameraStream={this.onCameraStream.bind(this)} />
-
                 <Video stream={this.state.stream} />
             </div>
         );
