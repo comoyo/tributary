@@ -39,7 +39,11 @@ class App extends React.Component {
         let peer = new Peer({
             socket: this.state.comm.socket,
             remotePeer: null,
-            onIncomingVideo: stream => this.setState({ stream: stream }) });
+            onIncomingVideo: stream => {
+                this.setState({ stream: stream });
+                this.state.comm.setIncomingVideoStream(stream);
+            },
+        });
         // this.state.peers.push(peer);
         peer.createPeerConnection();
         peer.startWatching({ name: name });
