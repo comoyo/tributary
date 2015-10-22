@@ -1,6 +1,6 @@
+import Camera from './camera.jsx';
 import React from 'react';
 import Participant from './participant.jsx';
-import Video from './video.jsx';
 
 class App extends React.Component {
     constructor(props) {
@@ -24,7 +24,7 @@ class App extends React.Component {
         }
     }
 
-    onVideoStream(e) {
+    onCameraStream(e) {
         this.setState({ stream: e.stream });
     }
 
@@ -63,9 +63,9 @@ class App extends React.Component {
                 <button type='button' onClick={this.toggleJoin.bind(this)}>
                     {watchingText}
                 </button>
-                <Video
+                <Camera
                     start={this.state.broadcasting}
-                    onVideoStream={this.onVideoStream.bind(this)} />
+                    onCameraStream={this.onCameraStream.bind(this)} />
 
                 <Participant {...participantProps} />
             </div>

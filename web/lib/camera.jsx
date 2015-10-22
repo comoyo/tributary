@@ -1,15 +1,15 @@
 import React from "react";
 
-class Video extends React.Component {
+class Camera extends React.Component {
     constructor(props) {
         super(props);
         this.state = {};
         if (this.props.start) {
-            this.initVideo();
+            this.initCamera();
         }
     }
 
-    initVideo() {
+    initCamera() {
         let constraints = {
             audio: false,
             video: {
@@ -20,14 +20,14 @@ class Video extends React.Component {
         navigator.mediaDevices.getUserMedia(constraints)
         .then(stream => {
             this.setState({ stream: stream, started: true });
-            this.props.onVideoStream({ stream: stream });
+            this.props.onCameraStream({ stream: stream });
         })
         .catch(err => {
             console.error('Ohz noez', err);
         });
     }
 
-    closeVideo() {
+    closeCamera() {
         if (!this.state.stream) {
             return;
         }
@@ -41,16 +41,16 @@ class Video extends React.Component {
             this.state.stream.stop();
         }
         this.setState({ stream: null, started: false });
-        this.props.onVideoStream({ stream: null });
+        this.props.onCameraStream({ stream: null });
     }
 
     componentWillReceiveProps(newProps) {
         if (newProps.start) {
             if (!this.state.started) {
-                this.initVideo();
+                this.initCamera();
             }
         } else {
-            this.closeVideo();
+            this.closeCamera();
         }
     }
 
@@ -66,4 +66,4 @@ class Video extends React.Component {
     }
 }
 
-export default Video;
+export default Camera;
