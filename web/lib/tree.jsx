@@ -6,8 +6,8 @@ class Tree extends React.Component {
         super(props);
         this.state = {
             size: {
-                height: 2200,
-                width: 960,
+                height: 800,
+                width: 600,
             },
             options: {
                 fontSize: 8,
@@ -91,7 +91,7 @@ class Tree extends React.Component {
     }
 
     render() {
-        return <div>Tree goes here now<div id='treeContainer'></div></div>;
+        return <div id='tree'><div id='treeContainer'></div></div>;
     }
 }
 
