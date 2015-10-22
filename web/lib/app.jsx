@@ -1,24 +1,25 @@
 import Camera from './camera.jsx';
+import Comm from './comm';
+import Peer from './peer';
 import React from 'react';
-import Participant from './participant.jsx';
+import Video from './video.jsx';
 
 class App extends React.Component {
     constructor(props) {
         super(props);
+        let peers = {};
         this.state = {
-            socket: new WebSocket('ws://localhost:8081/api/ws'),
-        };
-        this.state.socket.onerror = e => console.log('WebSocket error', e);
-        this.state.socket.handlers = [];
-        this.state.socket.onmessage = m => {
-            this.state.socket.handlers.forEach(handler => handler(m));
+            peers: peers,
+            comm: new Comm({ url: 'ws://localhost:8081/api/ws', peers: peers }),
         };
     }
 
     toggleBroadcast() {
         let notCurrentlyBroadcasting = !this.state.broadcasting;
-        if (notCurrentlyBroadcasting && this.state.broadcastName) {
+        let name = this.refs.broadcastName.value;
+        if (notCurrentlyBroadcasting && name) {
             this.setState({ broadcasting: true });
+            this.state.comm.startBroadcasting({ name: name });
         } else {
             this.setState({ broadcasting: false });
         }
@@ -28,12 +29,16 @@ class App extends React.Component {
         this.setState({ stream: e.stream });
     }
 
-    onBroadcastName(e) {
-        this.setState({ broadcastName: e.currentTarget.value });
-    }
-
     toggleJoin() {
-        this.setState({ watching: !this.state.watching });
+        let name = this.refs.broadcastName.value;
+        if (!name) {
+            alert('Need to specify a broadcast name to watch');
+            return;
+        }
+        let peer = new Peer({ socket: this.state.comm.socket, remotePeer: null });
+        // this.state.peers.push(peer);
+        peer.createPeerConnection();
+        peer.startWatching({ name: name });
     }
 
     render() {
@@ -52,8 +57,8 @@ class App extends React.Component {
                 <div>
                     <input
                         type='text'
-                        placeholder='Broadcast name'
-                        onChange={this.onBroadcastName.bind(this)}>
+                        ref='broadcastName'
+                        placeholder='Broadcast name'>
                     </input>
                 </div>
                 <button type='button' onClick={this.toggleBroadcast.bind(this)}>
@@ -67,7 +72,7 @@ class App extends React.Component {
                     start={this.state.broadcasting}
                     onCameraStream={this.onCameraStream.bind(this)} />
 
-                <Participant {...participantProps} />
+                <Video stream={this.state.stream} />
             </div>
         );
     }
