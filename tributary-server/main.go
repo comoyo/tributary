@@ -89,7 +89,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {
 	if name, ok := stringProp(message, "name"); ok {
-		log.Printf("Starting broadcast: %v", name)
+		log.Printf("Peer %v starting broadcast: %v", id, name)
 
 		globalLock.Lock()
 		defer globalLock.Unlock()
@@ -125,13 +125,14 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 	}
 
 	if broadcast, ok := broadcasts[name]; ok {
-
-		// FIXME: need to actually build a proper tree and insert this new connection into the right place.
-		// For now everyone just connects directly to the broadcaster.
 		globalLock.Lock()
 		defer globalLock.Unlock()
 
-		parent := broadcast
+		parent := findNodeWithSpareCapacity(broadcast)
+		if parent == nil {
+			log.Panic("Received a nil node when inserting: %+v", broadcast)
+		}
+
 		node := TreeNode{
 			conn:   conn,
 			id:     id,
@@ -139,6 +140,9 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 		}
 		connections[id] = conn
 		parent.children = append(node.parent.children, &node)
+
+		log.Printf("Peer %v joining broadcast %v as a child of %v which now has %d child(ren)\n",
+			id, name, parent.id, len(parent.children))
 
 		parent.conn.WriteJSON(struct {
 			Command string                 `json:"command"`
@@ -167,6 +171,8 @@ func commandRelayBroadCastReceived(conn *websocket.Conn, id string, message map[
 	if answer, ok = objectProp(message, "answer"); !ok {
 		sendErrorMessage(conn, "No \"answer\" property not specified or not an object in RELAY_BROADCAST_RECEIVED message")
 	}
+
+	log.Printf("Peer %v responding to %p with answer: %+v\n", id, peer, answer)
 
 	if peerConnection, ok := connections[peer]; ok {
 		peerConnection.WriteJSON(struct {
@@ -197,6 +203,8 @@ func commandIceCandidates(conn *websocket.Conn, id string, message map[string]in
 		sendErrorMessage(conn, "No \"candidates\" property not specified or not an array in ICE_CANDIDATE message")
 	}
 
+	log.Printf("Peer %v sending ICE candidates to peer %v: %+v", id, peer, candidates)
+
 	if peerConnection, ok := connections[peer]; ok {
 		peerConnection.WriteJSON(struct {
 			Command    string        `json:"command"`
@@ -216,6 +224,9 @@ func commandIceCandidates(conn *websocket.Conn, id string, message map[string]in
 func commandIceCandidatesReceived(conn *websocket.Conn, id string, message map[string]interface{}) {
 	if peer, ok := stringProp(message, "peer"); ok {
 		if peerConnection, ok := connections[peer]; ok {
+
+			log.Printf("Peer %v ack-ing ICE candidates from peer %v", id, peer)
+
 			peerConnection.WriteJSON(struct {
 				Command string `json:"command"`
 				Peer    string `json:"peer"`
@@ -230,6 +241,24 @@ func commandIceCandidatesReceived(conn *websocket.Conn, id string, message map[s
 	} else {
 		sendErrorMessage(conn, "No \"peer\" property not specified or not a string in ICE_CANDIDATE message")
 	}
+}
+
+func findNodeWithSpareCapacity(root *TreeNode) *TreeNode {
+	queue := []*TreeNode{root}
+	var node *TreeNode
+
+	for len(queue) > 0 {
+		node, queue = queue[0], queue[1:]
+
+		// FIXME: we can be more clever here in order to spread the load between the children better
+		if len(node.children) < *maxListeners {
+			return node
+		}
+
+		queue = append(queue, node.children...)
+	}
+
+	return nil
 }
 
 func sendErrorMessage(conn *websocket.Conn, message string) {
