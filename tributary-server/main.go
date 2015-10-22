@@ -42,6 +42,8 @@ var (
 
 func main() {
 	flag.Parse()
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/", fs)
 	http.HandleFunc("/api/ws", handleWebSocket)
 	log.Println("Server starting on port", *port)
 	log.Fatal("ListenAndServe:", http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
