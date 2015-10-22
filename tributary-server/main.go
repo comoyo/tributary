@@ -7,6 +7,7 @@ import (
 	"github.com/satori/go.uuid"
 	"log"
 	"net/http"
+	"sync"
 )
 
 type CommandHandlerFunc func(conn *websocket.Conn, id string, message map[string]interface{})
@@ -36,6 +37,7 @@ var (
 	}
 	broadcasts  = map[string]*TreeNode{}
 	connections = map[string]*websocket.Conn{}
+	globalLock  = new(sync.Mutex) // FIXME: yeah, I know it's horrible, but we'll fix it later
 )
 
 func main() {
@@ -88,11 +90,16 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {
 	if name, ok := stringProp(message, "name"); ok {
 		log.Printf("Starting broadcast: %v", name)
+
+		globalLock.Lock()
+		defer globalLock.Unlock()
+
 		broadcasts[name] = &TreeNode{
 			conn: conn,
 			id:   id,
 		}
 		connections[id] = conn
+
 		conn.WriteJSON(struct {
 			Command string `json:"command"`
 		}{
@@ -121,6 +128,9 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 
 		// FIXME: need to actually build a proper tree and insert this new connection into the right place.
 		// For now everyone just connects directly to the broadcaster.
+		globalLock.Lock()
+		defer globalLock.Unlock()
+
 		parent := broadcast
 		node := TreeNode{
 			conn:   conn,
@@ -128,8 +138,8 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 			parent: parent,
 		}
 		connections[id] = conn
-
 		parent.children = append(node.parent.children, &node)
+
 		parent.conn.WriteJSON(struct {
 			Command string                 `json:"command"`
 			Peer    string                 `json:"peer"`
