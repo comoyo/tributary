@@ -20,6 +20,7 @@ class App extends React.Component {
             treeData: {},
         };
         this.state.comm.onTreeStateChanged = tree => {
+            console.log('TRee state changed', tree);
             this.setState({ treeData: tree });
         };
     }
