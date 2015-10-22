@@ -162,10 +162,10 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 		peerName = "Anonymous"
 	}
 
-	if broadcast, ok := broadcasts[name]; ok {
-		globalLock.Lock()
-		defer globalLock.Unlock()
+	globalLock.Lock()
+	defer globalLock.Unlock()
 
+	if broadcast, ok := broadcasts[name]; ok {
 		parent := findNodeWithSpareCapacity(broadcast)
 		if parent == nil {
 			log.Panic("Received a nil node when inserting: %+v", broadcast)
@@ -287,6 +287,9 @@ func commandSubscribeToTreeState(conn *websocket.Conn, id string, message map[st
 		return
 	}
 
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
 	_, ok = broadcasts[name]
 	if !ok {
 		sendErrorMessage(conn, fmt.Sprintf("Unknown broadcast: %v", name))
@@ -305,6 +308,8 @@ func commandSubscribeToTreeState(conn *websocket.Conn, id string, message map[st
 	}{
 		"SUBSCRIBE_TO_TREE_STATE_RECEIVED",
 	})
+
+	notifyTreeListeners(name)
 }
 
 func commandUnsubscribeFromTreeState(conn *websocket.Conn, id string, message map[string]interface{}) {
@@ -313,6 +318,9 @@ func commandUnsubscribeFromTreeState(conn *websocket.Conn, id string, message ma
 		sendErrorMessage(conn, "No \"name\" property not specified or not a string in UNSUBSCRIBE_FROM_TREE_STATE message")
 		return
 	}
+
+	globalLock.Lock()
+	defer globalLock.Unlock()
 
 	_, ok = broadcasts[name]
 	if !ok {
@@ -353,7 +361,6 @@ func findNodeWithSpareCapacity(root *TreeNode) *TreeNode {
 }
 
 func notifyTreeListeners(broadcastName string) {
-
 	broadcast, ok := broadcasts[broadcastName]
 	if !ok {
 		log.Printf("Unknown broadcast in notifyTreeListeners: %v\n", broadcastName)
@@ -366,7 +373,6 @@ func notifyTreeListeners(broadcastName string) {
 	}
 
 	for _, conn := range *listeners {
-		log.Println("notifying listeners")
 		conn.WriteJSON(struct {
 			Command string                 `json:"command"`
 			Tree    map[string]interface{} `json:"tree"`
