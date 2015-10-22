@@ -2,6 +2,8 @@ import Camera from './camera';
 import Comm from './comm';
 import Peer from './peer';
 import React from 'react';
+import Tree from './tree.jsx';
+import TreeData from './treedata';
 import Video from './video.jsx';
 
 class App extends React.Component {
@@ -82,6 +84,7 @@ class App extends React.Component {
                     <button type='button' onClick={this.toggleJoin.bind(this)}>
                         {watchingText}
                     </button>
+                    <Tree data={TreeData} />
                 </div>
                 <Video stream={this.state.stream} />
             </div>
