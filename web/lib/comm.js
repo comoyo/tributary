@@ -21,6 +21,7 @@ class Comm {
                     case 'ICE_CANDIDATES':
                         this.handleIceCandidates(data);
                         break;
+
                     case 'TREE_STATE_CHANGED':
                         this.handleTreeStateChanged(data);
                         break;

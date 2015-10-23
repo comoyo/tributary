@@ -71,7 +71,6 @@ class App extends React.Component {
                 this.state.comm.setIncomingVideoStream(stream);
             },
         });
-        // this.state.peers.push(peer);
         peer.createPeerConnection();
         peer.startWatching({ name: name, peerName: userName });
     }
@@ -79,13 +78,6 @@ class App extends React.Component {
     render() {
         let broadcastText = (this.state.broadcasting ? 'Stop' : 'Start') + ' broadcasting';
         let watchingText = (this.state.watching ? 'Leave' : 'Join') + ' broadcast';
-        let participantProps = {
-            broadcasting: this.state.broadcasting,
-            broadcastName: this.state.broadcastName,
-            socket: this.state.socket,
-            stream: this.state.stream,
-            watching: this.state.watching,
-        };
         return (
             <div>
                 <h1>Hi there!</h1>
