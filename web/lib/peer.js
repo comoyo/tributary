@@ -41,7 +41,9 @@ class Peer {
             console.log('ON ADD STREAM', e);
             if (e.stream) {
                 this.stream = e.stream;
-                this.onIncomingVideo(this.stream);
+                if (typeof this.onIncomingVideo === 'function') {
+                    this.onIncomingVideo(this.stream);
+                }
             }
         };
 
