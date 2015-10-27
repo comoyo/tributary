@@ -29,11 +29,32 @@ class Peer {
         var peerConnection = new RTCPeerConnection({
             optional: [{ RtpDataChannels: false }],
             iceServers: [
-                { 'urls': ['stun:stun.l.google.com:19302'] },
-                { 'urls': ['stun:stun1.l.google.com:19302'] },
-                { 'urls': ['stun:stun2.l.google.com:19302'] },
-                { 'urls': ['stun:stun3.l.google.com:19302'] },
-                { 'urls': ['stun:stun4.l.google.com:19302'] },
+                {
+                    url: 'turn:ec2-52-17-229-249.eu-west-1.compute.amazonaws.com:3478',
+                    urls: ['turn:ec2-52-17-229-249.eu-west-1.compute.amazonaws.com:3478'],
+                    username: 'test',
+                    credential: 'bullshit',
+                },
+                // {
+                //     'url': 'stun:stun.l.google.com:19302',
+                //     'urls': ['stun:stun.l.google.com:19302']
+                // },
+                // {
+                //     'url': 'stun:stun1.l.google.com:19302',
+                //     'urls': ['stun:stun1.l.google.com:19302']
+                // },
+                // {
+                //     'url': 'stun:stun2.l.google.com:19302',
+                //     'urls': ['stun:stun2.l.google.com:19302']
+                // },
+                // {
+                //     'url': 'stun:stun3.l.google.com:19302',
+                //     'urls': ['stun:stun3.l.google.com:19302']
+                // },
+                // {
+                //     'url': 'stun:stun4.l.google.com:19302',
+                //     'urls': ['stun:stun4.l.google.com:19302']
+                // },
             ],
         });
 
