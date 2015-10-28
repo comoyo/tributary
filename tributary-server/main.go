@@ -38,7 +38,7 @@ func (t *TreeNode) json() map[string]interface{} {
 var (
 	port         = flag.Int("port", 8081, "Port the server listens on")
 	maxListeners = flag.Int("max-listeners", 3, "Max number of listeners (WebRTC peers) for a single client")
-	iceServers   = flag.String("ice-servers", `[{ "urls": ["stun:stun.l.google.com:19302"]}]`, "The ICE servers the peers should use")
+	iceServers   = flag.String("ice-servers", `[]`, "The ICE servers the peers should use")
 	upgrader     = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
