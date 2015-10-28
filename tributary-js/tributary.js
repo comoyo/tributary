@@ -1,20 +1,14 @@
 import Emitter from './emitter'
 
 class Peer extends Emitter {
-    constructor() {
+    constructor(config) {
         super();
         this._pendingIncomingCandidates = [];
         this._pendingOutgoingCandidates = [];
 
         this._peerConnection = new RTCPeerConnection({
             optional: [{ RtpDataChannels: false }],
-            iceServers: [
-                { 'urls': ['stun:stun.l.google.com:19302'] },
-                { 'urls': ['stun:stun1.l.google.com:19302'] },
-                { 'urls': ['stun:stun2.l.google.com:19302'] },
-                { 'urls': ['stun:stun3.l.google.com:19302'] },
-                { 'urls': ['stun:stun4.l.google.com:19302'] },
-            ],
+            iceServers: config.iceServers,
         });
 
         this._peerConnection.onaddstream = e => {
@@ -193,11 +187,16 @@ class Tributary extends Emitter {
             return Promise.reject(`Tributary is in an invalid state to start a broadcast (${this._state})`);
         }
 
-        return this.sendAndWait({
-            command: 'START_BROADCAST',
-            name,
-            peerName,
-        }).then(() => {
+        return this.sendAndWait({ command: 'FETCH_CONFIG'})
+        .then((config) => {
+            this._config = config;
+            return this.sendAndWait({
+                command: 'START_BROADCAST',
+                name,
+                peerName,
+            });
+        })
+        .then(() => {
             this._state = TributaryState.BROADCASTING;
         });
     }
@@ -220,8 +219,14 @@ class Tributary extends Emitter {
             return Promise.reject(`Tributary is in an invalid state to join a broadcast (${this._state})`);
         }
 
-        this._upstreamPeer = new Peer();
-        return this._upstreamPeer.getOffer()
+        return this.sendAndWait({ command: 'FETCH_CONFIG'})
+        .then((config) => {
+            this._config = config;
+        })
+        .then(() => {
+            this._upstreamPeer = new Peer(this._config);
+            return this._upstreamPeer.getOffer()
+        })
         .then((offer) => {
             return this.sendAndWait({
                 command: 'JOIN_BROADCAST',
@@ -274,7 +279,7 @@ class Tributary extends Emitter {
     onRelayBroadcast(message) {
         console.log('TRIBUTARY:RELAY_BROADCAST', message);
 
-        const peer = new Peer();
+        const peer = new Peer(this._config);
         this._downstreamPeers[message.peer] = peer;
 
         peer.addStream(this._stream);

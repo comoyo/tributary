@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/satori/go.uuid"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -36,6 +38,7 @@ func (t *TreeNode) json() map[string]interface{} {
 var (
 	port         = flag.Int("port", 8081, "Port the server listens on")
 	maxListeners = flag.Int("max-listeners", 3, "Max number of listeners (WebRTC peers) for a single client")
+	iceServers   = flag.String("ice-servers", `[{ "urls": ["stun:stun.l.google.com:19302"]}]`, "The ICE servers the peers should use")
 	upgrader     = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -51,6 +54,7 @@ var (
 		"ICE_CANDIDATES_RECEIVED":     commandIceCandidatesReceived,
 		"SUBSCRIBE_TO_TREE_STATE":     commandSubscribeToTreeState,
 		"UNSUBSCRIBE_FROM_TREE_STATE": commandUnsubscribeFromTreeState,
+		"FETCH_CONFIG":                commandFetchConfig,
 	}
 	broadcasts         = map[string]*TreeNode{}
 	connections        = map[string]*websocket.Conn{}
@@ -339,6 +343,24 @@ func commandUnsubscribeFromTreeState(conn *websocket.Conn, id string, message ma
 		Command string `json:"command"`
 	}{
 		"UNSUBSCRIBE_FROM_TREE_STATE_RECEIVED",
+	})
+}
+
+func commandFetchConfig(conn *websocket.Conn, id string, message map[string]interface{}) {
+	var iceJSON []interface{}
+	decoder := json.NewDecoder(strings.NewReader(*iceServers))
+	if err := decoder.Decode(&iceJSON); err != nil {
+		log.Println(err)
+		sendErrorMessage(conn, "Invalid ICE server JSON")
+		return
+	}
+
+	conn.WriteJSON(struct {
+		Command    string        `json:"command"`
+		IceServers []interface{} `json:"iceServers"`
+	}{
+		"FETCH_CONFIG_RECEIVED",
+		iceJSON,
 	})
 }
 

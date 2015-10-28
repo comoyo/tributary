@@ -40,6 +40,13 @@ The web client and server talk over web sockets. All of the messages sent back a
 
 ## Client-to-server commands
 
+### FETCH_CONFIG
+
+The client requests configuration parameters from the server.
+
+The server will send back a FETCH_CONFIG_RECEIVED command with the following properties:
+  * iceServers (array): an array of ICE servers that can be passed in as part of an RTCPeerConnection constructor.
+
 ### START_BROADCAST
 
 A broadcasting client sends this command to announce the intent to start a live broadcast.
