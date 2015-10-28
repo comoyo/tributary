@@ -24,4 +24,6 @@ module.exports = {
   ],
   // Create Sourcemaps for the bundle
   devtool: 'source-map',
+  // because we're loading files from outside of the examples dir
+  resolveLoader: { root: path.join(__dirname, "node_modules") },
 };

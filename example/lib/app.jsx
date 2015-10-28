@@ -1,31 +1,37 @@
-import Camera from './camera';
-import Comm from './comm';
-import Peer from './peer';
+import Tributary from '../../tributary-js/tributary';
 import React from 'react';
 import Tree from './tree.jsx';
 import Video from './video.jsx';
+import url from 'url';
 
-let websocketEndpoint = 'ws://' + window.location.host + '/api/ws';
+const query = url.parse(window.location.toString(), true).query;
+const wshost = query.wshost || window.location.host;
 
 class App extends React.Component {
     constructor(props) {
         super(props);
-        let camera = new Camera();
-        camera.on('stream', this.onCameraStream.bind(this));
         this.state = {
-            comm: new Comm({ url: websocketEndpoint }),
-            camera: camera,
             treeData: {},
         };
-        this.state.comm.onTreeStateChanged = tree => {
-            console.log('TRee state changed', tree);
+
+        this.tributary = new Tributary({
+            url: `ws://${wshost}/api/ws`,
+        });
+        this.tributary.on('stream', stream => {
+            this.setState({ stream });
+        });
+        this.tributary.on('treestatechanged', tree => {
             this.setState({ treeData: tree });
-        };
+        });
     }
 
     toggleBroadcast() {
         let notCurrentlyBroadcasting = !this.state.broadcasting;
         let name = this.refs.broadcastName.value;
+        if (!name) {
+            alert('Need to specify a broadcast name');
+            return;
+        }
 
         let userName = this.refs.user.value;
         if (!userName) {
@@ -34,22 +40,34 @@ class App extends React.Component {
         }
 
         if (notCurrentlyBroadcasting && name) {
-            this.setState({ broadcasting: true });
-            this.state.camera.start();
-            this.state.comm.startBroadcasting({ name: name, peerName: userName });
+            let constraints = {
+                audio: false,
+                video: {
+                    mandatory: { maxWidth: 480, maxHeight: 320 }
+                }
+            };
+            this.tributary.startCamera(constraints)
+            .then(stream => {
+                this.tributary.setStream(stream);
+            })
+            .then(() => {
+                return this.tributary.startBroadcast(name, userName);
+            })
+            .then(() => {
+                return this.tributary.subscribeToTreeChanges(name);
+            })
+            .then(() => {
+                this.setState({ broadcasting: true });
+            }, err => {
+                console.error(err);
+            });
         } else {
             this.setState({ broadcasting: false, stream: null });
-            this.state.camera.stop();
+            this.tributary.stopCamera();
         }
     }
 
-    onCameraStream(e) {
-        this.setState({ stream: e.stream });
-        this.state.comm.setIncomingVideoStream(e.stream);
-    }
-
-    toggleJoin(e) {
-        console.log('TOGGLE JOIN', e);
+    toggleJoin() {
         let name = this.refs.broadcastName.value;
         if (!name) {
             alert('Need to specify a broadcast name to watch');
@@ -62,22 +80,16 @@ class App extends React.Component {
             return;
         }
 
-        let peer = new Peer({
-            socket: this.state.comm.socket,
-            remotePeer: null,
-            onIncomingVideo: stream => {
-                this.setState({ stream: stream });
-                this.state.comm.setIncomingVideoStream(stream);
-            },
-            comm: this.state.comm,
+        this.tributary.joinBroadcast(name, userName)
+        .catch(err => {
+            console.error(err);
         });
-        peer.createPeerConnection();
-        peer.startWatching({ name: name, peerName: userName });
     }
 
     render() {
         let broadcastText = (this.state.broadcasting ? 'Stop' : 'Start') + ' broadcasting';
         let watchingText = (this.state.watching ? 'Leave' : 'Join') + ' broadcast';
+        let tree = <Tree data={this.state.treeData} />;
         return (
             <div>
                 <h1>Hi there!</h1>
@@ -101,7 +113,7 @@ class App extends React.Component {
                     <button type='button' onClick={this.toggleJoin.bind(this)}>
                         {watchingText}
                     </button>
-                    <Tree data={this.state.treeData} />
+                    { this.state.broadcasting && tree }
                 </div>
                 <Video stream={this.state.stream} />
             </div>

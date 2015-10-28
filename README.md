@@ -79,7 +79,7 @@ A receiving client sends this message to cleanly exit a broadcast.
 Command properties:
   * name (string): an identifier for the broadcast.
 
-The server will send back a LEAVE_BROADCAST command which is an acknowledgement that the broadast has been exited.
+The server will send back a LEAVE_BROADCAST_RECEIVED command which is an acknowledgement that the broadast has been exited.
 
 ### ICE_CANDIDATES
 
@@ -136,7 +136,6 @@ The server expects an ICE_CANDIDATES_RECEIVED message to acknowledge the receipt
 Notifies a client that changes to the tree have occurred.
 
 Command properties:
-  * peer (string): a unique identifier of the remote peer. The client will need to send this ID back to the server for future messages (like ICE_CANDIDATE).
   * tree (JSON object): the full tree of the broadcast.
 
 

@@ -111,7 +111,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {
 	name, ok := stringProp(message, "name")
 	if !ok {
-		sendErrorMessage(conn, "No \"name\" property not specified or not a string in START_BROADCAST message")
+		sendErrorMessage(conn, "No \"name\" property specified or not a string in START_BROADCAST message")
 		return
 	}
 
@@ -149,12 +149,12 @@ func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]i
 func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {
 	name, ok := stringProp(message, "name")
 	if !ok {
-		sendErrorMessage(conn, "No \"name\" property not specified or not a string in JOIN_BROADCAST message")
+		sendErrorMessage(conn, "No \"name\" property specified or not a string in JOIN_BROADCAST message")
 	}
 
 	offer, ok := objectProp(message, "offer")
 	if !ok {
-		sendErrorMessage(conn, "No \"offer\" property not specified or not an object in JOIN_BROADCAST message")
+		sendErrorMessage(conn, "No \"offer\" property specified or not an object in JOIN_BROADCAST message")
 	}
 
 	peerName, ok := stringProp(message, "peerName")
@@ -203,12 +203,12 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 func commandRelayBroadCastReceived(conn *websocket.Conn, id string, message map[string]interface{}) {
 	peer, ok := stringProp(message, "peer")
 	if !ok {
-		sendErrorMessage(conn, "No \"peer\" property not specified or not a string in RELAY_BROADCAST_RECEIVED message")
+		sendErrorMessage(conn, "No \"peer\" property specified or not a string in RELAY_BROADCAST_RECEIVED message")
 	}
 
 	answer, ok := objectProp(message, "answer")
 	if !ok {
-		sendErrorMessage(conn, "No \"answer\" property not specified or not an object in RELAY_BROADCAST_RECEIVED message")
+		sendErrorMessage(conn, "No \"answer\" property specified or not an object in RELAY_BROADCAST_RECEIVED message")
 	}
 
 	log.Printf("Peer %v responding to %v with answer: %+v\n", id, peer, answer)
@@ -232,12 +232,12 @@ func commandRelayBroadCastReceived(conn *websocket.Conn, id string, message map[
 func commandIceCandidates(conn *websocket.Conn, id string, message map[string]interface{}) {
 	peer, ok := stringProp(message, "peer")
 	if !ok {
-		sendErrorMessage(conn, "No \"peer\" property not specified or not a string in ICE_CANDIDATE message")
+		sendErrorMessage(conn, "No \"peer\" property specified or not a string in ICE_CANDIDATES message")
 	}
 
 	candidates, ok := arrayProp(message, "candidates")
 	if !ok {
-		sendErrorMessage(conn, "No \"candidates\" property not specified or not an array in ICE_CANDIDATE message")
+		sendErrorMessage(conn, "No \"candidates\" property specified or not an array in ICE_CANDIDATES message")
 	}
 
 	log.Printf("Peer %v sending ICE candidates to peer %v: %+v", id, peer, candidates)
@@ -276,14 +276,14 @@ func commandIceCandidatesReceived(conn *websocket.Conn, id string, message map[s
 
 		sendErrorMessage(conn, fmt.Sprintf("Unknown peer: %v", peer))
 	} else {
-		sendErrorMessage(conn, "No \"peer\" property not specified or not a string in ICE_CANDIDATE message")
+		sendErrorMessage(conn, "No \"peer\" property specified or not a string in ICE_CANDIDATES_RECEIVED message")
 	}
 }
 
 func commandSubscribeToTreeState(conn *websocket.Conn, id string, message map[string]interface{}) {
 	name, ok := stringProp(message, "name")
 	if !ok {
-		sendErrorMessage(conn, "No \"name\" property not specified or not a string in SUBSCRIBE_TO_TREE_STATE message")
+		sendErrorMessage(conn, "No \"name\" property specified or not a string in SUBSCRIBE_TO_TREE_STATE message")
 		return
 	}
 
@@ -315,7 +315,7 @@ func commandSubscribeToTreeState(conn *websocket.Conn, id string, message map[st
 func commandUnsubscribeFromTreeState(conn *websocket.Conn, id string, message map[string]interface{}) {
 	name, ok := stringProp(message, "name")
 	if !ok {
-		sendErrorMessage(conn, "No \"name\" property not specified or not a string in UNSUBSCRIBE_FROM_TREE_STATE message")
+		sendErrorMessage(conn, "No \"name\" property specified or not a string in UNSUBSCRIBE_FROM_TREE_STATE message")
 		return
 	}
 
@@ -386,8 +386,9 @@ func notifyTreeListeners(broadcastName string) {
 func sendErrorMessage(conn *websocket.Conn, message string) {
 	log.Println(message)
 	conn.WriteJSON(struct {
+		Command string `json:"command"`
 		Message string `json:"message"`
-	}{message})
+	}{"ERROR", message})
 }
 
 func sendErrorMessageAndCode(conn *websocket.Conn, message string, errorCode int) {
