@@ -1,14 +1,28 @@
 class Peer {
     constructor(options) {
+        var e = new Error();
+        console.log('CREATING Peer', e.stack);
         this.socket = options.socket;
         this.peerConnection = null;
         this.pendingIceCandidates = [];
         this.onIncomingVideo = options.onIncomingVideo;
+        this.comm = options.comm;
         this.setRemotePeer(options.remotePeer);
     }
 
     setRemotePeer(peer) {
+        console.log('SET REMOTE PEER', peer);
         this.remotePeer = peer;
+        if (peer) {
+            if (this.comm) {
+                this.comm.peers[peer] = this;
+                this.comm.removeUnstablePeer(this);
+            } else {
+                console.log('  DEBUG: Maybe ok, but only if this is a member of app.peers already..');
+            }
+        } else {
+            this.comm.addUnstablePeer(this);
+        }
         this.flushIceCandidatesIfPossible();
     }
 
@@ -26,6 +40,8 @@ class Peer {
     }
 
     createPeerConnection() {
+        var e = new Error();
+        console.log('CREATING RTCPeerConnection', e.stack);
         var peerConnection = new RTCPeerConnection({
             optional: [{ RtpDataChannels: false }],
             iceServers: [

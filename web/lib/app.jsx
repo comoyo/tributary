@@ -10,12 +10,10 @@ let websocketEndpoint = 'ws://' + window.location.host + '/api/ws';
 class App extends React.Component {
     constructor(props) {
         super(props);
-        let peers = {};
         let camera = new Camera();
         camera.on('stream', this.onCameraStream.bind(this));
         this.state = {
-            peers: peers,
-            comm: new Comm({ url: websocketEndpoint, peers: peers }),
+            comm: new Comm({ url: websocketEndpoint }),
             camera: camera,
             treeData: {},
         };
@@ -50,7 +48,8 @@ class App extends React.Component {
         this.state.comm.setIncomingVideoStream(e.stream);
     }
 
-    toggleJoin() {
+    toggleJoin(e) {
+        console.log('TOGGLE JOIN', e);
         let name = this.refs.broadcastName.value;
         if (!name) {
             alert('Need to specify a broadcast name to watch');
@@ -70,6 +69,7 @@ class App extends React.Component {
                 this.setState({ stream: stream });
                 this.state.comm.setIncomingVideoStream(stream);
             },
+            comm: this.state.comm,
         });
         peer.createPeerConnection();
         peer.startWatching({ name: name, peerName: userName });
