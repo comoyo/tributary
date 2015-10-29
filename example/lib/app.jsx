@@ -20,13 +20,40 @@ class App extends React.Component {
             this.setState({ stream });
         });
         this.tributary.on('treestatechanged', tree => {
-            this.setState({ treeData: tree });
+            const nodes = [{
+                id: tree.id,
+                label: tree.name,
+                color: {
+                    background: '#ff0000',
+                    border: '#ff0000',
+                },
+                font: {
+                    color: '#ffffff',
+                }
+            }];
+
+            const edges = [];
+
+            const addNode = node => {
+                if (!node.children) {
+                    return
+                }
+
+                node.children.forEach(child => {
+                    nodes.push({ id: child.id, label: child.name });
+                    edges.push({ from: child.id, to: node.id });
+                    addNode(child);
+                });
+            }
+
+            addNode(tree);
+            this.setState({ treeData: { nodes, edges } });
         });
         this.tributary.on('statechanged', state => {
             this.setState({ tributaryState: state });
         });
         this.state = {
-            treeData: {},
+            treeData: { nodes: [], edges: [] },
             tributaryState: this.tributary.state,
         };
     }
@@ -97,7 +124,7 @@ class App extends React.Component {
         const video = this.state.tributaryState === Tributary.TributaryState.READY
             ? <div><img src="images/tributary.png" /></div>
             : <Video stream={this.state.stream} />;
-        const tree = <Tree data={this.state.treeData} />;
+        const tree = <div id="tree-container"><Tree graph={this.state.treeData} /></div>;
         return (
             <div>
                 <div id="container">
