@@ -67,6 +67,9 @@ class Peer extends Emitter {
         })
         .then(answer => {
             this._peerConnection.setLocalDescription(answer);
+            const candidates = this._pendingIncomingCandidates;
+            this._pendingIncomingCandidates = null;
+            this.addIceCandidates(candidates);
             return answer;
         });
     }
