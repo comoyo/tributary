@@ -66,8 +66,8 @@ class App extends React.Component {
     }
 
     endBroadcast() {
-        this.tributary.endBroadcast()
-        .then(() => this.tributary.stopCamera());
+        this.tributary.stopCamera();
+        this.tributary.endBroadcast();
     }
 
     joinBroadcast() {
