@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo 'Running webpack. Hold on...'
-webpack -p
+webpack $*
 
 rm -rf ../tributary-server/static
 mkdir ../tributary-server/static
