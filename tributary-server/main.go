@@ -87,6 +87,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		var rawMessage interface{}
 		if err := conn.ReadJSON(&rawMessage); err != nil {
 			log.Printf("Read error: %v\n", err)
+			handleDisconnect(id)
 			conn.Close()
 			return
 		}
@@ -172,26 +173,7 @@ func commandEndBroadcast(conn *websocket.Conn, id string, message map[string]int
 		return
 	}
 
-	command := struct {
-		Command string `json:"command"`
-		Name    string `json:"name"`
-	}{
-		"BROADCAST_ENDED",
-		name,
-	}
-
-	var destroyTree func(node *TreeNode)
-	destroyTree = func(node *TreeNode) {
-		node.conn.WriteJSON(command)
-		delete(connections, node.id)
-
-		for _, child := range node.children {
-			destroyTree(child)
-		}
-	}
-
-	destroyTree(broadcast)
-	delete(broadcasts, name)
+	endBroadcast(broadcast)
 
 	conn.WriteJSON(struct {
 		Command string `json:"command"`
@@ -432,6 +414,46 @@ func findNodeWithSpareCapacity(root *TreeNode) *TreeNode {
 	}
 
 	return nil
+}
+
+func endBroadcast(broadcast *TreeNode) {
+
+	command := struct {
+		Command string `json:"command"`
+		Name    string `json:"name"`
+	}{
+		"BROADCAST_ENDED",
+		broadcast.name,
+	}
+
+	var destroyTree func(node *TreeNode)
+	destroyTree = func(node *TreeNode) {
+		node.conn.WriteJSON(command)
+		delete(connections, node.id)
+
+		for _, child := range node.children {
+			destroyTree(child)
+		}
+	}
+
+	destroyTree(broadcast)
+	delete(broadcasts, broadcast.name)
+}
+
+func handleDisconnect(id string) {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	// check first if this connection was broadcasting, if so, shut down the broadcast
+	for _, broadcast := range broadcasts {
+		if broadcast.id == id {
+			log.Printf(`Peer "%v" disconnected, ending broadcast "%v"`, id, broadcast.name)
+			endBroadcast(broadcast)
+			return
+		}
+	}
+
+	// FIXME: handle interior node disconnects
 }
 
 func notifyTreeListeners(broadcastName string) {
