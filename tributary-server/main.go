@@ -174,7 +174,7 @@ func commandEndBroadcast(conn *websocket.Conn, id string, message map[string]int
 		return
 	}
 
-	endBroadcast(broadcast)
+	endBroadcast(name, broadcast)
 
 	conn.WriteJSON(struct {
 		Command string `json:"command"`
@@ -443,14 +443,14 @@ func findNodeWithSpareCapacity(root *TreeNode) *TreeNode {
 	return nil
 }
 
-func endBroadcast(broadcast *TreeNode) {
+func endBroadcast(broadcastName string, broadcast *TreeNode) {
 
 	command := struct {
 		Command string `json:"command"`
 		Name    string `json:"name"`
 	}{
 		"BROADCAST_ENDED",
-		broadcast.name,
+		broadcastName,
 	}
 
 	var destroyTree func(node *TreeNode)
@@ -464,7 +464,7 @@ func endBroadcast(broadcast *TreeNode) {
 	}
 
 	destroyTree(broadcast)
-	delete(broadcasts, broadcast.name)
+	delete(broadcasts, broadcastName)
 }
 
 func leaveBroadcast(node *TreeNode) {
@@ -521,7 +521,7 @@ func handleDisconnect(id string) {
 	for broadcastName, broadcast := range broadcasts {
 		if broadcast.id == id {
 			log.Printf(`Peer "%v" disconnected, ending broadcast "%v"`, id, broadcastName)
-			endBroadcast(broadcast)
+			endBroadcast(broadcastName, broadcast)
 			return
 		}
 	}
