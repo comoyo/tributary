@@ -87,6 +87,10 @@ class Peer extends Emitter {
         this._peerConnection.addStream(stream);
     }
 
+    removeStream(stream) {
+        this._peerConnection.removeStream(stream);
+    }
+
     unblockOutgoingCandidates() {
         this.emit('icecandidates', this._pendingOutgoingCandidates);
         this._pendingOutgoingCandidates = null;
@@ -102,6 +106,7 @@ const TributaryState = {
     BROADCASTING: 'BROADCASTING',
     LISTENING: 'LISTENING',
     BROADCAST_ENDED: 'BROADCAST_ENDED',
+    RECONNECTING: 'RECONNECTING',
 };
 
 class Tributary extends Emitter {
@@ -189,7 +194,19 @@ class Tributary extends Emitter {
     }
 
     setStream(stream) {
+        const oldStream = this._stream;
         this._stream = stream;
+
+        for (let peer in this._downstreamPeers) {
+            if (oldStream) {
+                this._downstreamPeers[peer].removeStream(oldStream);
+            }
+
+            if (stream) {
+                this._downstreamPeers[peer].addStream(stream);
+            }
+        }
+
         this.emit('stream', stream);
     }
 
@@ -208,7 +225,7 @@ class Tributary extends Emitter {
             });
         })
         .then(() => {
-            this.broadcast = name;
+            this._broadcast = name;
             this.state = TributaryState.BROADCASTING;
         });
     }
@@ -220,15 +237,22 @@ class Tributary extends Emitter {
 
         return this.sendAndWait({
             command: 'END_BROADCAST',
-            name: this.broadcast,
+            name: this._broadcast,
         }).then(() => {
             this.state = TributaryState.READY;
         });
     }
 
     joinBroadcast(name, peerName) {
-        if (this._state !== TributaryState.READY) {
+        if (!(this._state === TributaryState.READY || this._state === TributaryState.RECONNECTING)) {
             return Promise.reject(`Tributary is in an invalid state to join a broadcast (${this._state})`);
+        }
+
+        // if we're reconnecting, we'll already have an upstream peer who is now dead to us
+        if (this._upstreamPeer) {
+            this._upstreamPeer.close();
+            this._upstreamPeer = null;
+            this.setStream(null);
         }
 
         return this.sendAndWait({ command: 'FETCH_CONFIG'})
@@ -248,7 +272,8 @@ class Tributary extends Emitter {
             });
         })
         .then(response => {
-            this.broadcast = name;
+            this._broadcast = name;
+            this._peerName = peerName;
             this.state = TributaryState.LISTENING;
             this._upstreamPeerId = response.peer;
             this._upstreamPeer.on('icecandidates', candidates => {
@@ -274,9 +299,19 @@ class Tributary extends Emitter {
             return Promise.reject(`Tributary is in an invalid state to leave a broadcast (${this._state})`);
         }
 
+        if (this.upstreamPeer) {
+            this._upstreamPeer.close();
+            this._upstreamPeer = null;
+        }
+
+        for (let peer in this._downstreamPeers) {
+            this._downstreamPeers[peer].close();
+        }
+        this._downstreamPeers = {};
+
         return this.sendAndWait({
             command: 'LEAVE_BROADCAST',
-            name: this.broadcast,
+            name: this._broadcast,
         }).then(() => {
             this.state = TributaryState.READY;
         });
@@ -348,7 +383,9 @@ class Tributary extends Emitter {
         });
     }
 
-    onBroadcastEnded() {
+    onBroadcastEnded(message) {
+        console.log('TRIBUTARY:BROADCAST_ENDED', message);
+
         if (this.upstreamPeer) {
             this._upstreamPeer.close();
             this._upstreamPeer = null;
@@ -364,6 +401,12 @@ class Tributary extends Emitter {
         if (this.state === TributaryState.LISTENING) {
             this.state = TributaryState.BROADCAST_ENDED;
         }
+    }
+
+    onReconnectToBroadcast(message) {
+        console.log('TRIBUTARY:RECONNECT_TO_BROADCAST', message);
+        this.state = TributaryState.RECONNECTING;
+        this.joinBroadcast(message.name, this._peerName);
     }
 
     onTreeStateChanged(message) {

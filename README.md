@@ -73,7 +73,7 @@ A receiving client sends this message to announce that they'd like to watch a li
 Command properties:
   * name (string): an identifier for the broadcast.
   * offer (JSON object): the offer retrieved via RTCPeerConnection.createOffer().
-  * peerName: a user-friendly name for the client listening to the broadcast.
+  * peerName (string): a user-friendly name for the client listening to the broadcast.
 
 The server will send back a JOIN_BROADCAST_RECEIVED to this command. It will contain the following properties:
   * peer (string): a unique identifier of the remote peer. The client will need to send this ID back to the server for future messages (like ICE_CANDIDATE).
@@ -144,6 +144,10 @@ A notification from the server that the broadcaster has ended the broadcast
 
 Command properties:
   * name (string): an identifier for the broadcast.
+
+### RECONNECT_TO_BROADCAST
+
+The server sends this message to notify a client that it's upstream peer is dead and that it needs to reconnect in order to keep viewing the broadcast. It is then the client's job to pass along the stream from the new peer to it's downstream listeners.
 
 ### TREE_STATE_CHANGED
 

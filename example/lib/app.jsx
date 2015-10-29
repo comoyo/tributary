@@ -146,12 +146,22 @@ class App extends React.Component {
                 </div>
             );
         } else {
-            const title = this.state.tributaryState === Tributary.TributaryState.LISTENING
-                ? <div className="control-title">Receiving from <span className="control-broadcast">{this.state.broadcast}</span></div>
-                : <div className="control-title">Broadcast <span className="control-broadcast">{this.state.broadcast}</span> ended</div>;
+
+            let title = '';
+            switch (this.state.tributaryState) {
+                case Tributary.TributaryState.BROADCAST_ENDED:
+                    title = 'Broadcast ended on';
+                    break;
+                case Tributary.TributaryState.RECONNECTING:
+                    title = 'Reconnecting to';
+                    break;
+                default:
+                    title = 'Receiving from';
+            }
+
             return (
                 <div id="controls">
-                    {title}
+                    <div className="control-title">{title} <span className="control-broadcast">{this.state.broadcast}</span></div>
                     <RaisedButton
                         label="Leave Broadcast"
                         primary={true}

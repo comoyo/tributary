@@ -50,6 +50,7 @@ var (
 		"START_BROADCAST":             commandStartBroadcast,
 		"END_BROADCAST":               commandEndBroadcast,
 		"JOIN_BROADCAST":              commandJoinBroadcast,
+		"LEAVE_BROADCAST":             commandLeaveBroadcast,
 		"RELAY_BROADCAST_RECEIVED":    commandRelayBroadCastReceived,
 		"ICE_CANDIDATES":              commandIceCandidates,
 		"ICE_CANDIDATES_RECEIVED":     commandIceCandidatesReceived,
@@ -58,7 +59,7 @@ var (
 		"FETCH_CONFIG":                commandFetchConfig,
 	}
 	broadcasts         = map[string]*TreeNode{}
-	connections        = map[string]*websocket.Conn{}
+	peers              = map[string]*TreeNode{}
 	treeStateListeners = map[string]*map[string]*websocket.Conn{}
 	globalLock         = sync.Mutex{} // FIXME: yeah, I know it's horrible, but we'll fix it later
 )
@@ -142,7 +143,7 @@ func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]i
 		id:   id,
 		name: peerName,
 	}
-	connections[id] = conn
+	peers[id] = broadcasts[name]
 	conn.WriteJSON(struct {
 		Command string `json:"command"`
 	}{
@@ -209,14 +210,21 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 			log.Panic("Received a nil node when inserting: %+v", broadcast)
 		}
 
-		node := TreeNode{
-			conn:   conn,
-			id:     id,
-			name:   peerName,
-			parent: parent,
+		node, ok := peers[id]
+		if ok {
+			log.Printf(`Peer "%v" already exists, reattaching to new parent "%v"`, id, parent.id)
+			node.parent = parent
+		} else {
+			node = &TreeNode{
+				conn:   conn,
+				id:     id,
+				name:   peerName,
+				parent: parent,
+			}
+			peers[id] = node
 		}
-		connections[id] = conn
-		parent.children = append(node.parent.children, &node)
+
+		parent.children = append(node.parent.children, node)
 
 		log.Printf("Peer %v joining broadcast %v as a child of %v which now has %d child(ren)\n",
 			id, name, parent.id, len(parent.children))
@@ -238,6 +246,25 @@ func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]in
 	sendErrorMessage(conn, fmt.Sprintf("Unknown broadcast: %v", name))
 }
 
+func commandLeaveBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {
+	peerNode, ok := peers[id]
+	if !ok {
+		sendErrorMessage(conn, fmt.Sprintf(`Unable to find peer "%v" in LEAVE_BROADCAST message`, id))
+		return
+	}
+
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	leaveBroadcast(peerNode)
+
+	conn.WriteJSON(struct {
+		Command string `json:"command"`
+	}{
+		"LEAVE_BROADCAST_RECEIVED",
+	})
+}
+
 func commandRelayBroadCastReceived(conn *websocket.Conn, id string, message map[string]interface{}) {
 	peer, ok := stringProp(message, "peer")
 	if !ok {
@@ -251,8 +278,8 @@ func commandRelayBroadCastReceived(conn *websocket.Conn, id string, message map[
 
 	log.Printf("Peer %v responding to %v with answer: %+v\n", id, peer, answer)
 
-	if peerConnection, ok := connections[peer]; ok {
-		peerConnection.WriteJSON(struct {
+	if peerNode, ok := peers[peer]; ok {
+		peerNode.conn.WriteJSON(struct {
 			Command string                 `json:"command"`
 			Peer    string                 `json:"peer"`
 			Answer  map[string]interface{} `json:"answer"`
@@ -280,8 +307,8 @@ func commandIceCandidates(conn *websocket.Conn, id string, message map[string]in
 
 	log.Printf("Peer %v sending ICE candidates to peer %v: %+v", id, peer, candidates)
 
-	if peerConnection, ok := connections[peer]; ok {
-		peerConnection.WriteJSON(struct {
+	if peerNode, ok := peers[peer]; ok {
+		peerNode.conn.WriteJSON(struct {
 			Command    string        `json:"command"`
 			Peer       string        `json:"peer"`
 			Candidates []interface{} `json:"candidates"`
@@ -298,11 +325,11 @@ func commandIceCandidates(conn *websocket.Conn, id string, message map[string]in
 
 func commandIceCandidatesReceived(conn *websocket.Conn, id string, message map[string]interface{}) {
 	if peer, ok := stringProp(message, "peer"); ok {
-		if peerConnection, ok := connections[peer]; ok {
+		if peerNode, ok := peers[peer]; ok {
 
 			log.Printf("Peer %v ack-ing ICE candidates from peer %v", id, peer)
 
-			peerConnection.WriteJSON(struct {
+			peerNode.conn.WriteJSON(struct {
 				Command string `json:"command"`
 				Peer    string `json:"peer"`
 			}{
@@ -429,7 +456,7 @@ func endBroadcast(broadcast *TreeNode) {
 	var destroyTree func(node *TreeNode)
 	destroyTree = func(node *TreeNode) {
 		node.conn.WriteJSON(command)
-		delete(connections, node.id)
+		delete(peers, node.id)
 
 		for _, child := range node.children {
 			destroyTree(child)
@@ -440,20 +467,66 @@ func endBroadcast(broadcast *TreeNode) {
 	delete(broadcasts, broadcast.name)
 }
 
+func leaveBroadcast(node *TreeNode) {
+	if node == nil {
+		return
+	}
+
+	broadcast := node
+	for broadcast.parent != nil {
+		broadcast = broadcast.parent
+	}
+
+	broadcastName := ""
+	for name, broadcastNode := range broadcasts {
+		if broadcastNode.id == broadcast.id {
+			broadcastName = name
+			break
+		}
+	}
+
+	if broadcastName == "" {
+		log.Printf(`Unable to find the name of broadcast "%v"`, broadcast.id)
+		return
+	}
+
+	for i, child := range node.parent.children {
+		if child.id == node.id {
+			node.parent.children = append(node.parent.children[:i], node.parent.children[i+1:]...)
+			break
+		}
+	}
+
+	for _, child := range node.children {
+		child.parent = nil
+		child.conn.WriteJSON(struct {
+			Command string `json:"command"`
+			Name    string `json:"name"`
+		}{
+			"RECONNECT_TO_BROADCAST",
+			broadcastName,
+		})
+	}
+
+	node.children = []*TreeNode{}
+	delete(peers, node.id)
+	notifyTreeListeners(broadcastName)
+}
+
 func handleDisconnect(id string) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
 	// check first if this connection was broadcasting, if so, shut down the broadcast
-	for _, broadcast := range broadcasts {
+	for broadcastName, broadcast := range broadcasts {
 		if broadcast.id == id {
-			log.Printf(`Peer "%v" disconnected, ending broadcast "%v"`, id, broadcast.name)
+			log.Printf(`Peer "%v" disconnected, ending broadcast "%v"`, id, broadcastName)
 			endBroadcast(broadcast)
 			return
 		}
 	}
 
-	// FIXME: handle interior node disconnects
+	leaveBroadcast(peers[id])
 }
 
 func notifyTreeListeners(broadcastName string) {
