@@ -48,6 +48,7 @@ var (
 	}
 	commandHandlers = map[string]CommandHandlerFunc{
 		"START_BROADCAST":             commandStartBroadcast,
+		"END_BROADCAST":               commandEndBroadcast,
 		"JOIN_BROADCAST":              commandJoinBroadcast,
 		"RELAY_BROADCAST_RECEIVED":    commandRelayBroadCastReceived,
 		"ICE_CANDIDATES":              commandIceCandidates,
@@ -148,6 +149,57 @@ func commandStartBroadcast(conn *websocket.Conn, id string, message map[string]i
 	})
 
 	notifyTreeListeners(name)
+}
+
+func commandEndBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {
+	name, ok := stringProp(message, "name")
+	if !ok {
+		sendErrorMessage(conn, "No \"name\" property specified or not a string in END_BROADCAST message")
+		return
+	}
+
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	broadcast, ok := broadcasts[name]
+	if !ok {
+		sendErrorMessage(conn, fmt.Sprintf("Broadcast \"%v\" does not exist", name))
+		return
+	}
+
+	if broadcast.id != id {
+		sendErrorMessage(conn, fmt.Sprintf("Peer \"%v\" did not start broadcast \"%v\"", id, name))
+		return
+	}
+
+	command := struct {
+		Command string `json:"command"`
+		Name    string `json:"name"`
+	}{
+		"BROADCAST_ENDED",
+		name,
+	}
+
+	var destroyTree func(node *TreeNode)
+	destroyTree = func(node *TreeNode) {
+		node.conn.WriteJSON(command)
+		delete(connections, node.id)
+
+		for _, child := range node.children {
+			destroyTree(child)
+		}
+	}
+
+	destroyTree(broadcast)
+	delete(broadcasts, name)
+
+	conn.WriteJSON(struct {
+		Command string `json:"command"`
+		Name    string `json:"name"`
+	}{
+		"END_BROADCAST_RECEIVED",
+		name,
+	})
 }
 
 func commandJoinBroadcast(conn *websocket.Conn, id string, message map[string]interface{}) {

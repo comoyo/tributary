@@ -91,12 +91,17 @@ class Peer extends Emitter {
         this.emit('icecandidates', this._pendingOutgoingCandidates);
         this._pendingOutgoingCandidates = null;
     }
+
+    close() {
+        this._peerConnection.close();
+    }
 }
 
 const TributaryState = {
     READY: 'READY',
     BROADCASTING: 'BROADCASTING',
     LISTENING: 'LISTENING',
+    BROADCAST_ENDED: 'BROADCAST_ENDED',
 };
 
 class Tributary extends Emitter {
@@ -203,6 +208,7 @@ class Tributary extends Emitter {
             });
         })
         .then(() => {
+            this.broadcast = name;
             this.state = TributaryState.BROADCASTING;
         });
     }
@@ -214,7 +220,7 @@ class Tributary extends Emitter {
 
         return this.sendAndWait({
             command: 'END_BROADCAST',
-            name,
+            name: this.broadcast,
         }).then(() => {
             this.state = TributaryState.READY;
         });
@@ -242,6 +248,7 @@ class Tributary extends Emitter {
             });
         })
         .then(response => {
+            this.broadcast = name;
             this.state = TributaryState.LISTENING;
             this._upstreamPeerId = response.peer;
             this._upstreamPeer.on('icecandidates', candidates => {
@@ -258,13 +265,18 @@ class Tributary extends Emitter {
     }
 
     leaveBroadcast() {
+        if (this._state === TributaryState.BROADCAST_ENDED) {
+            this.state = TributaryState.READY;
+            return Promise.resolve();
+        }
+
         if (this._state !== TributaryState.LISTENING) {
             return Promise.reject(`Tributary is in an invalid state to leave a broadcast (${this._state})`);
         }
 
         return this.sendAndWait({
             command: 'LEAVE_BROADCAST',
-            name,
+            name: this.broadcast,
         }).then(() => {
             this.state = TributaryState.READY;
         });
@@ -334,6 +346,24 @@ class Tributary extends Emitter {
             command: 'ICE_CANDIDATES_RECEIVED',
             peer: message.peer,
         });
+    }
+
+    onBroadcastEnded() {
+        if (this.upstreamPeer) {
+            this._upstreamPeer.close();
+            this._upstreamPeer = null;
+        }
+
+        for (let peer in this._downstreamPeers) {
+            this._downstreamPeers[peer].close();
+        }
+        this._downstreamPeers = {};
+
+        this.setStream(null);
+
+        if (this.state === TributaryState.LISTENING) {
+            this.state = TributaryState.BROADCAST_ENDED;
+        }
     }
 
     onTreeStateChanged(message) {

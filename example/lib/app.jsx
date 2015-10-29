@@ -67,7 +67,7 @@ class App extends React.Component {
 
     endBroadcast() {
         this.tributary.endBroadcast()
-        .then(() => this.tributary.stopCamer());
+        .then(() => this.tributary.stopCamera());
     }
 
     joinBroadcast() {
@@ -146,9 +146,12 @@ class App extends React.Component {
                 </div>
             );
         } else {
+            const title = this.state.tributaryState === Tributary.TributaryState.LISTENING
+                ? <div className="control-title">Receiving from <span className="control-broadcast">{this.state.broadcast}</span></div>
+                : <div className="control-title">Broadcast <span className="control-broadcast">{this.state.broadcast}</span> ended</div>;
             return (
                 <div id="controls">
-                    <div className="control-title">Receiving from <span className="control-broadcast">{this.state.broadcast}</span></div>
+                    {title}
                     <RaisedButton
                         label="Leave Broadcast"
                         primary={true}

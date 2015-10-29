@@ -138,6 +138,13 @@ Command properties:
 
 The server expects an ICE_CANDIDATES_RECEIVED message to acknowledge the receipt of the ICE candidate.
 
+### BROADCAST_ENDED
+
+A notification from the server that the broadcaster has ended the broadcast
+
+Command properties:
+  * name (string): an identifier for the broadcast.
+
 ### TREE_STATE_CHANGED
 
 Notifies a client that changes to the tree have occurred.
