@@ -19,7 +19,9 @@ class Peer extends Emitter {
 
         this._peerConnection.onaddstream = e => {
             console.log('TRIBUTARY:PEER:onaddstream');
-            if (e.stream) {
+            // FIXME: the this.stream thing is a hack! Somehow Firefox gets two onaddstream events
+            // when Chromse is broadcasting and the second one is bogus.
+            if (e.stream && !this.stream) {
                 this.stream = e.stream;
                 this.emit('stream', e.stream);
             }
