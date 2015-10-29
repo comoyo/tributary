@@ -1,6 +1,8 @@
-import Tributary from '../../tributary-js/tributary';
+import RaisedButton from 'material-ui/lib/raised-button';
 import React from 'react';
+import TextField from 'material-ui/lib/text-field';
 import Tree from './tree.jsx';
+import Tributary from '../../tributary-js/tributary';
 import Video from './video.jsx';
 import url from 'url';
 
@@ -10,9 +12,6 @@ const wshost = query.wshost || window.location.host;
 class App extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {
-            treeData: {},
-        };
 
         this.tributary = new Tributary({
             url: `ws://${wshost}/api/ws`,
@@ -23,101 +22,140 @@ class App extends React.Component {
         this.tributary.on('treestatechanged', tree => {
             this.setState({ treeData: tree });
         });
+        this.tributary.on('statechanged', state => {
+            this.setState({ tributaryState: state });
+        });
+        this.state = {
+            treeData: {},
+            tributaryState: this.tributary.state,
+        };
     }
 
-    toggleBroadcast() {
-        let notCurrentlyBroadcasting = !this.state.broadcasting;
-        let name = this.refs.broadcastName.value;
+    startBroadcast() {
+        let name = this.refs.broadcastName.getValue();
         if (!name) {
             alert('Need to specify a broadcast name');
             return;
         }
 
-        let userName = this.refs.user.value;
+        let userName = this.refs.user.getValue();
         if (!userName) {
             alert('Need to specify a user name');
             return;
         }
 
-        if (notCurrentlyBroadcasting && name) {
-            let constraints = {
-                audio: false,
-                video: {
-                    mandatory: { maxWidth: 480, maxHeight: 320 }
-                }
-            };
-            this.tributary.startCamera(constraints)
-            .then(stream => {
-                this.tributary.setStream(stream);
-            })
-            .then(() => {
-                return this.tributary.startBroadcast(name, userName);
-            })
-            .then(() => {
-                return this.tributary.subscribeToTreeChanges(name);
-            })
-            .then(() => {
-                this.setState({ broadcasting: true });
-            }, err => {
-                console.error(err);
-            });
-        } else {
-            this.setState({ broadcasting: false, stream: null });
-            this.tributary.stopCamera();
-        }
+        let constraints = {
+            audio: false,
+            video: {
+                mandatory: { maxWidth: 480, maxHeight: 320 }
+            }
+        };
+        this.tributary.startCamera(constraints)
+        .then(stream => {
+            this.tributary.setStream(stream);
+        })
+        .then(() => {
+            return this.tributary.startBroadcast(name, userName);
+        })
+        .then(() => {
+            return this.tributary.subscribeToTreeChanges(name);
+        })
+        .then(() => this.setState({ broadcast: name }), err => {
+            console.error(err);
+        });
     }
 
-    toggleJoin() {
-        let name = this.refs.broadcastName.value;
+    endBroadcast() {
+        this.tributary.endBroadcast()
+        .then(() => this.tributary.stopCamer());
+    }
+
+    joinBroadcast() {
+        let name = this.refs.broadcastName.getValue();
         if (!name) {
             alert('Need to specify a broadcast name to watch');
             return;
         }
 
-        let userName = this.refs.user.value;
+        let userName = this.refs.user.getValue();
         if (!userName) {
             alert('Need to specify a user name');
             return;
         }
 
         this.tributary.joinBroadcast(name, userName)
-        .catch(err => {
+        .then(() => this.setState({ broadcast: name }), err => {
             console.error(err);
         });
     }
 
+    leaveBroadcast() {
+        this.tributary.leaveBroadcast();
+    }
+
     render() {
-        let broadcastText = (this.state.broadcasting ? 'Stop' : 'Start') + ' broadcasting';
-        let watchingText = (this.state.watching ? 'Leave' : 'Join') + ' broadcast';
-        let tree = <Tree data={this.state.treeData} />;
+        const video = this.state.tributaryState === Tributary.TributaryState.READY
+            ? <div><img src="images/tributary.png" /></div>
+            : <Video stream={this.state.stream} />;
+        const tree = <Tree data={this.state.treeData} />;
         return (
             <div>
-                <h1>Hi there!</h1>
-                <div>
-                    <div>
-                        <input
-                            type='text'
-                            ref='broadcastName'
-                            placeholder='Broadcast name'>
-                        </input>
-                        <input
-                            type='text'
-                            ref='user'
-                            placeholder='User name'>
-                        </input>
+                <div id="container">
+                    <div id="video-and-controls">
+                        <div id="video-container">
+                            {video}
+                        </div>
+                        {this.getControls()}
                     </div>
-                    <button type='button' onClick={this.toggleBroadcast.bind(this)}>
-                        {broadcastText}
-                    </button>
-                    <span>or</span>
-                    <button type='button' onClick={this.toggleJoin.bind(this)}>
-                        {watchingText}
-                    </button>
-                    { this.state.broadcasting && tree }
                 </div>
-                <Video stream={this.state.stream} />
+                { this.state.tributaryState === Tributary.TributaryState.BROADCASTING && tree }
             </div>
-        );
+        )
+    }
+
+    getControls() {
+        if (this.state.tributaryState === Tributary.TributaryState.READY) {
+            return (
+                <div id="controls">
+                    <TextField
+                        ref="broadcastName"
+                        hintText="Name of broadcast" />
+                    <TextField
+                        ref="user"
+                        hintText="Your name"
+                        style={{ marginLeft: 15 }}/>
+                    <RaisedButton
+                        label="Start Broadcast"
+                        secondary={true}
+                        style={{ marginLeft: 15 }}
+                        onClick={e => this.startBroadcast(e)}/>
+                    <RaisedButton
+                        label="Join Broadcast"
+                        style={{ marginLeft: 15 }}
+                        onClick={e => this.joinBroadcast(e)}/>
+                </div>
+            );
+        } else if (this.state.tributaryState === Tributary.TributaryState.BROADCASTING) {
+            return (
+                <div id="controls">
+                    <div className="control-title">Broadcasting to <span className="control-broadcast">{this.state.broadcast}</span></div>
+                    <RaisedButton
+                        label="End Broadcast"
+                        primary={true}
+                        onClick={e => this.endBroadcast(e)}/>
+                </div>
+            );
+        } else {
+            return (
+                <div id="controls">
+                    <div className="control-title">Receiving from <span className="control-broadcast">{this.state.broadcast}</span></div>
+                    <RaisedButton
+                        label="Leave Broadcast"
+                        primary={true}
+                        onClick={e => this.leaveBroadcast(e)}/>
+                </div>
+            );
+        }
     }
 }
 

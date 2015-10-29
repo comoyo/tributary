@@ -5,7 +5,7 @@ let Video = (props) => {
         let url = (typeof props.stream === 'object')
             ? window.URL.createObjectURL(props.stream)
             : props.stream;
-        return <video autoPlay src={url} />;
+        return <video autoPlay src={url} className="video" />;
     }
     return <div></div>;
 }

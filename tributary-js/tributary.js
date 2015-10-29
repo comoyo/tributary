@@ -103,7 +103,7 @@ class Tributary extends Emitter {
 
     constructor(options) {
         super();
-        this._state = TributaryState.READY;
+        this.state = TributaryState.READY;
         this._downstreamPeers = {};
 
         this._responseHandlers = {};
@@ -203,7 +203,7 @@ class Tributary extends Emitter {
             });
         })
         .then(() => {
-            this._state = TributaryState.BROADCASTING;
+            this.state = TributaryState.BROADCASTING;
         });
     }
 
@@ -216,7 +216,7 @@ class Tributary extends Emitter {
             command: 'END_BROADCAST',
             name,
         }).then(() => {
-            this._state = TributaryState.READY;
+            this.state = TributaryState.READY;
         });
     }
 
@@ -242,7 +242,7 @@ class Tributary extends Emitter {
             });
         })
         .then(response => {
-            this._state = TributaryState.LISTENING;
+            this.state = TributaryState.LISTENING;
             this._upstreamPeerId = response.peer;
             this._upstreamPeer.on('icecandidates', candidates => {
                 this.send({
@@ -261,6 +261,13 @@ class Tributary extends Emitter {
         if (this._state !== TributaryState.LISTENING) {
             return Promise.reject(`Tributary is in an invalid state to leave a broadcast (${this._state})`);
         }
+
+        return this.sendAndWait({
+            command: 'LEAVE_BROADCAST',
+            name,
+        }).then(() => {
+            this.state = TributaryState.READY;
+        });
     }
 
     subscribeToTreeChanges(name) {
@@ -333,6 +340,16 @@ class Tributary extends Emitter {
         console.log('TRIBUTARY:TREE_STATE_CHANGED', message);
         this.emit('treestatechanged', message.tree);
     }
+
+    get state() {
+        return this._state;
+    }
+
+    set state(s) {
+        this._state = s;
+        this.emit('statechanged', s);
+    }
 }
 
+Tributary.TributaryState = TributaryState;
 export default Tributary
