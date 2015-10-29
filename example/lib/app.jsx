@@ -72,7 +72,7 @@ class App extends React.Component {
         }
 
         let constraints = {
-            audio: false,
+            audio: true,
             video: {
                 mandatory: { maxWidth: 480, maxHeight: 320 }
             }
