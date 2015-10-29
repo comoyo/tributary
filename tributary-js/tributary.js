@@ -184,7 +184,7 @@ class Tributary extends Emitter {
         }
 
         if (typeof this._stream.removeTrack === 'function') { // MediaStream
-            let tracks = this.stream.getTracks();
+            let tracks = this._stream.getTracks();
             for (let i = tracks.length - 1; i >= 0; i--) {
                 tracks[i].stop();
                 this._stream.removeTrack(tracks[i]);
